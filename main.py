@@ -13,9 +13,10 @@ from pathlib import Path
 from typing import Literal, Optional
 from uuid import uuid4
 
+import aiofiles
+import aiohttp
 import httpx
 import jwt
-
 import stripe
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509 import load_pem_x509_certificate
@@ -362,32 +363,33 @@ Suggested donation: $2 per hour of content converted."""
         await send_email(user_id, subject, body, files)
 
 
-def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]):
-    creds = get_gmail_service()
-
-    service = build("gmail", "v1", credentials=creds)
-
-    msg = MIMEMultipart()
-    msg["From"] = os.getenv("PLATOGRAM_EMAIL_FROM")
-    msg["To"] = user_id
-    msg["Subject"] = subj
-
-    msg.attach(MIMEText(body, "plain"))
+async def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]):
+    url = "https://api.resend.com/emails"
+    headers = {
+        "Authorization": f"Bearer { os.getenv('RESEND_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "from": "Platogram <onboarding@resend.dev>",
+        "to": user_id,
+        "subject": subj,
+        "text": body,
+        "attachments": []
+    }
 
     # Attach files if provided
-    for file in files:
-        with open(file, "rb") as file:
-            file_name = file.name.split("/")[-1]
-            part = MIMEApplication(file.read(), Name=file_name)
-        part["Content-Disposition"] = f'attachment; filename="{file_name}"'
-        msg.attach(part)
+    for attachment in files:
+        async with aiofiles.open(attachment, "rb") as file:
+            content = await file.read()
+            encoded_content = base64.b64encode(content).decode('utf-8')
+            payload["attachments"].append({
+                "filename": attachment.name,
+                "content": encoded_content
+            })
 
-    raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
-    message_body = {"raw": raw_message}
-
-    sent_message = send_with_retry(service, message_body)
-
-    delete_with_retry(service, sent_message["id"])
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, headers=headers, json=payload) as response:
+            return response
 
 
 def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
