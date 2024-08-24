@@ -15,7 +15,7 @@ from uuid import uuid4
 
 import httpx
 import jwt
-import logfire
+
 import stripe
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509 import load_pem_x509_certificate
@@ -44,7 +44,7 @@ SCOPES = [
 ]
 
 
-logfire.configure()
+
 app = FastAPI()
 
 
@@ -152,7 +152,7 @@ async def verify_token_and_get_user_id(token: str = Depends(oauth2_scheme)):
 
 
 @app.post("/convert")
-@logfire.instrument()
+
 async def convert(
     background_tasks: BackgroundTasks,
     user_id: str = Depends(verify_token_and_get_user_id),
@@ -207,7 +207,7 @@ async def status(user_id: str = Depends(verify_token_and_get_user_id)) -> dict:
 
 
 @app.get("/reset")
-@logfire.instrument()
+
 async def reset(user_id: str = Depends(verify_token_and_get_user_id)):
     if user_id in processes:
         processes[user_id].terminate()
@@ -275,11 +275,11 @@ async def convert_and_send_with_error_handling(
                 source=request.token,
                 description='Platogram audio to paper conversion'
             )
-            logfire.info("Charge successful", price=request.price, user_id=user_id, charge_id=charge.id)
+            print("Charge successful", price=request.price, user_id=user_id, charge_id=charge.id)
         else:
-            logfire.info(f"No charge for user {user_id}", user_id=user_id)
+            print(f"No charge for user {user_id}", user_id=user_id)
     except Exception as e:
-        logfire.exception(f"Error in background task for user {user_id}: {str(e)}")
+        print(f"Error in background task for user {user_id}: {str(e)}")
 
         error = str(e)
         # Truncate and simplify error message for user-friendly display
@@ -324,7 +324,7 @@ async def convert_and_send(request: ConversionRequest, user_id: str):
                         )
                     )
                 except OSError as e:
-                    logfire.warning(
+                    print(
                         f"Failed to delete temporary file {request.payload}: {e}"
                     )
 
@@ -333,14 +333,14 @@ async def convert_and_send(request: ConversionRequest, user_id: str):
             title = title_match.group(1).strip()
         else:
             title = "👋"
-            logfire.warning("No title found in stdout, using default title")
+            print("No title found in stdout, using default title")
 
         abstract_match = re.search(r"<abstract>(.*?)</abstract>", stdout, re.DOTALL)
         if abstract_match:
             abstract = abstract_match.group(1).strip()
         else:
             abstract = ""
-            logfire.warning("No abstract found in stdout, using default abstract")
+            print("No abstract found in stdout, using default abstract")
 
         files = [f for f in Path(tmpdir).glob("*") if f.is_file()]
 
