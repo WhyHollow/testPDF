@@ -36,7 +36,8 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from pydantic import BaseModel
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi.middleware.cors import CORSMiddleware
+
 
 import platogram as plato
 
@@ -49,17 +50,12 @@ SCOPES = [
 app = FastAPI()
 
 
-class RedirectMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        if request.url.hostname == "platogram.ai":
-            return RedirectResponse(
-                url=str(request.url).replace("platogram.ai", "web.platogram.ai"),
-                status_code=301,
-            )
-        return await call_next(request)
 
-
-app.add_middleware(RedirectMiddleware)
+app.add_middleware(CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],)
 
 AUTH0_DOMAIN = "dev-df8axtz2fh7qc2n2.us.auth0.com"
 API_AUDIENCE = "https://web.platogram.ai"
