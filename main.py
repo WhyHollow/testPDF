@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 import time
+import subprocess
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from email.mime.application import MIMEApplication
@@ -238,16 +239,16 @@ async def audio_to_paper(
     if user_id in processes:
         raise RuntimeError("Conversion already in progress.")
 
-    process = await asyncio.create_subprocess_shell(
+    process = subprocess.Popen(
         command,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         shell=True,
     )
     processes[user_id] = process
 
     try:
-        stdout, stderr = await process.communicate()
+        stdout, stderr =  process.communicate()
     finally:
         if user_id in processes:
             del processes[user_id]
@@ -265,9 +266,7 @@ stderr:
 
 
 async def send_email(user_id: str, subj: str, body: str, files: list[Path]):
-    loop = asyncio.get_running_loop()
-    with ProcessPoolExecutor() as pool:
-        await loop.run_in_executor(pool, _send_email_sync, user_id, subj, body, files)
+    _send_email_sync(user_id, subj, body, files)
 
 
 async def convert_and_send_with_error_handling(
