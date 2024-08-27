@@ -232,22 +232,22 @@ async def audio_to_paper(
     url: str, lang: Language, output_dir: Path, user_id: str
 ) -> tuple[str, str]:
     # Get absolute path of current working directory
-    script_path = Path().resolve() / "audio_to_paper.sh"
-    command = f'cd {Path().resolve()} && {script_path} "{url}" --lang {lang} --verbose'
+    script_path = Path.cwd() / "examples" / "audio_to_paper.sh"
+    command = f'cd {output_dir} && {script_path} "{url}" --lang {lang} --verbose'
 
     if user_id in processes:
         raise RuntimeError("Conversion already in progress.")
 
-    process = subprocess.Popen(
+    process = await asyncio.create_subprocess_shell(
         command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
         shell=True,
     )
     processes[user_id] = process
 
     try:
-        stdout, stderr =  process.communicate()
+        stdout, stderr = await process.communicate()
     finally:
         if user_id in processes:
             del processes[user_id]
@@ -260,7 +260,7 @@ stdout:
 
 stderr:
 {stderr.decode()}""")
-
+    print("Decode stdout:" + stdout.decode(), "Decode stderr:" + stderr.decode())
     return stdout.decode(), stderr.decode()
 
 
