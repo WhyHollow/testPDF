@@ -234,8 +234,7 @@ async def audio_to_paper(
     # Get absolute path of current working directory
     script_path = Path().resolve() / "audio_to_paper.sh"
     command = f'cd {Path().resolve()} && {script_path} "{url}" --lang {lang} --verbose'
-    print(f"Absolute Path: {Path().resolve()}")
-    print(f"Command: {command}")
+
     if user_id in processes:
         raise RuntimeError("Conversion already in progress.")
 
@@ -275,17 +274,8 @@ async def convert_and_send_with_error_handling(
     try:
         await convert_and_send(request, user_id)
         tasks[user_id].status = "done"
-        if request.token and request.token.lower() != 'null':
-            stripe.api_key = os.getenv("STRIPE_API_KEY")
-            charge = stripe.Charge.create(
-                amount=int(float(request.price) * 100),
-                currency='usd',
-                source=request.token,
-                description='Platogram audio to paper conversion'
-            )
-            print("Charge successful", price=request.price, user_id=user_id, charge_id=charge.id)
-        else:
-            print(f"No charge for user {user_id}", user_id=user_id)
+        print(f"No charge for user {user_id}")
+
     except Exception as e:
         print(f"Error in background task for user {user_id}: {str(e)}")
 
