@@ -265,7 +265,7 @@ stderr:
 
 
 async def send_email(user_id: str, subj: str, body: str, files: list[Path]):
-    _send_email_sync(user_id, subj, body, files)
+    await _send_email_sync(user_id, subj, body, files)
 
 
 async def convert_and_send_with_error_handling(
