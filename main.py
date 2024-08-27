@@ -232,8 +232,8 @@ async def audio_to_paper(
     url: str, lang: Language, output_dir: Path, user_id: str
 ) -> tuple[str, str]:
     # Get absolute path of current working directory
-    script_path = Path.cwd() / "examples" / "audio_to_paper.sh"
-    command = f'cd {output_dir} && {script_path} "{url}" --lang {lang} --verbose'
+    script_path = Path().resolve() / "audio_to_paper.sh"
+    command = f'cd {Path().resolve()} && {script_path} "{url}" --lang {lang} --verbose'
 
     if user_id in processes:
         raise RuntimeError("Conversion already in progress.")
