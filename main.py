@@ -143,9 +143,20 @@ async def verify_token_and_get_user_id(token: str = Depends(oauth2_scheme)):
             audience=API_AUDIENCE,
             issuer=f"https://{AUTH0_DOMAIN}/",
         )
-        return payload["platogram:user_email"]
+        email = payload.get("platogram:user_email") or payload.get("email")
+        if not email:
+            raise HTTPException(status_code=401, detail="Email not found in token")
+        return email
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidAudienceError:
+        raise HTTPException(status_code=401, detail="Invalid audience")
+    except jwt.InvalidIssuerError:
+        raise HTTPException(status_code=401, detail="Invalid issuer")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
-        raise HTTPException(status_code=401, detail="Couldn't verify token") from e
+        raise HTTPException(status_code=401, detail="Couldn't verify token")
 
 
 @app.post("/convert")
