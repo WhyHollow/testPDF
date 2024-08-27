@@ -265,7 +265,8 @@ stderr:
 
 
 async def send_email(user_id: str, subj: str, body: str, files: list[Path]):
-    await _send_email_sync(user_id, subj, body, files)
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _send_email_sync, user_id, subj, body, files)
 
 
 async def convert_and_send_with_error_handling(
