@@ -357,7 +357,7 @@ Please reply to this e-mail if any suggestions, feedback, or questions.
 ---
 Support Platogram by donating here: https://buy.stripe.com/eVa29p3PK5OXbq84gl
 Suggested donation: $2 per hour of content converted."""
-
+        print(user_id, subject, body, files)
         await send_email(user_id, subject, body, files)
 
 
