@@ -320,47 +320,43 @@ async def convert_and_send_with_error_handling(
         tasks[user_id].status = "failed"
 
 async def convert_and_send(request: ConversionRequest, user_id: str):
-
     with tempfile.TemporaryDirectory() as tmpdir:
         print(f"Received payload: {request.payload}")
-        if not (
-            request.payload.startswith("http")
-            or request.payload.startswith("file:///tmp/platogram_uploads")
-        ):
-            raise HTTPException(status_code=400, detail="Please provide a valid URL.")
-        else:
+
+        # Проверка, является ли payload URL или путь к файлу
+        if request.payload.startswith("file:///"):
+            file_path = request.payload[len("file:///"):]
+            if not os.path.exists(file_path):
+                raise HTTPException(status_code=400, detail="File does not exist.")
+            url = f"file://{file_path}"
+        elif request.payload.startswith("http"):
             url = request.payload
+        else:
+            raise HTTPException(status_code=400, detail="Please provide a valid URL.")
 
         try:
-
+            # Обработка аудио и преобразование
             stdout, stderr = await audio_to_paper(
                 url, request.lang, Path(tmpdir), user_id
             )
         finally:
-
-            if request.payload.startswith("file:///tmp/platogram_uploads"):
+            # Удаление временных файлов, если это необходимо
+            if request.payload.startswith("file:///"):
                 try:
-                    file_path = request.payload.replace(
-                        "file:///tmp/platogram_uploads", "/tmp/platogram_uploads"
-                    )
                     os.remove(file_path)
                 except OSError as e:
                     print(f"Failed to delete temporary file {file_path}: {e}")
 
         # Извлечение заголовка из stdout
         title_match = re.search(r"<title>(.*?)</title>", stdout, re.DOTALL)
-        if title_match:
-            title = title_match.group(1).strip()
-        else:
-            title = "👋"
+        title = title_match.group(1).strip() if title_match else "👋"
+        if not title_match:
             print("No title found in stdout, using default title")
 
         # Извлечение аннотации из stdout
         abstract_match = re.search(r"<abstract>(.*?)</abstract>", stdout, re.DOTALL)
-        if abstract_match:
-            abstract = abstract_match.group(1).strip()
-        else:
-            abstract = ""
+        abstract = abstract_match.group(1).strip() if abstract_match else ""
+        if not abstract_match:
             print("No abstract found in stdout, using default abstract")
 
         # Получение всех файлов из временного каталога
