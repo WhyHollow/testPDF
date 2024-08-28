@@ -273,7 +273,7 @@ async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
     }
 
     payload = {
-        "from": "Platogram <onboarding@resend.dev>",
+        "from": "Welcome Temporary Name",
         "to": user_id,
         "subject": subj,
         "text": body,
