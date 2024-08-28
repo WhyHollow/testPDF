@@ -185,12 +185,17 @@ async def convert(
     if payload is not None:
         request = ConversionRequest(payload=payload, lang=lang, price=price, token=token)
     else:
-        with NamedTemporaryFile(delete=False, suffix=f".{file.filename.split('.')[-1]}") as temp_file:
-            file_content = await file.read()
-            temp_file.write(file_content)
-            temp_file_path = temp_file.name
+        tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
+        tmpdir.mkdir(parents=True, exist_ok=True)
+        file_ext = file.filename.split(".")[-1]
+        temp_file = Path(tmpdir) / f"{uuid4()}.{file_ext}"
+        file_content = await file.read()
+        with open(temp_file, "wb") as fd:
+            fd.write(file_content)
+            fd.close()
 
-        request = ConversionRequest(payload=f"file://{temp_file_path}", lang=lang)
+
+        request = ConversionRequest(payload=f"file://{temp_file}", lang=lang)
 
     tasks[user_id] = Task(start_time=datetime.now(), request=request, price=price, token=token)
     background_tasks.add_task(convert_and_send_with_error_handling, request, user_id)
@@ -321,48 +326,47 @@ async def convert_and_send_with_error_handling(
 
 async def convert_and_send(request: ConversionRequest, user_id: str):
     with tempfile.TemporaryDirectory() as tmpdir:
-        print(f"Received payload: {request.payload}")
-
-        # Проверка, является ли payload URL или путь к файлу
-        if request.payload.startswith("file:///"):
-            file_path = request.payload[len("file:///"):]
-            if not os.path.exists(file_path):
-                raise HTTPException(status_code=400, detail="File does not exist.")
-            url = f"file://{file_path}"
-        elif request.payload.startswith("http"):
-            url = request.payload
-        else:
+        if not (
+            request.payload.startswith("http")
+            or request.payload.startswith("file:///tmp/platogram_uploads")
+        ):
             raise HTTPException(status_code=400, detail="Please provide a valid URL.")
+        else:
+            url = request.payload
 
         try:
-            # Обработка аудио и преобразование
             stdout, stderr = await audio_to_paper(
                 url, request.lang, Path(tmpdir), user_id
             )
         finally:
-            # Удаление временных файлов, если это необходимо
-            if request.payload.startswith("file:///"):
+            if request.payload.startswith("file:///tmp/platogram_uploads"):
                 try:
-                    os.remove(file_path)
+                    os.remove(
+                        request.payload.replace(
+                            "file:///tmp/platogram_uploads", "/tmp/platogram_uploads"
+                        )
+                    )
                 except OSError as e:
-                    print(f"Failed to delete temporary file {file_path}: {e}")
+                    print(
+                        f"Failed to delete temporary file {request.payload}: {e}"
+                    )
 
-        # Извлечение заголовка из stdout
         title_match = re.search(r"<title>(.*?)</title>", stdout, re.DOTALL)
-        title = title_match.group(1).strip() if title_match else "👋"
-        if not title_match:
-            print("No title found in stdout, using default title")
+        if title_match:
+            title = title_match.group(1).strip()
+        else:
+            title = "👋"
 
-        # Извлечение аннотации из stdout
+
         abstract_match = re.search(r"<abstract>(.*?)</abstract>", stdout, re.DOTALL)
-        abstract = abstract_match.group(1).strip() if abstract_match else ""
-        if not abstract_match:
-            print("No abstract found in stdout, using default abstract")
+        if abstract_match:
+            abstract = abstract_match.group(1).strip()
+        else:
+            abstract = ""
 
-        # Получение всех файлов из временного каталога
+
         files = [f for f in Path(tmpdir).glob("*") if f.is_file()]
 
-        # Формирование темы и текста сообщения
         subject = f"[Platogram] {title}"
         body = f"""Hi there!
 
