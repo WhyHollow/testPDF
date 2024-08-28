@@ -273,7 +273,7 @@ async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
     }
 
     payload = {
-        "from": "Welcome Temporary Name",
+        "from": "Waffle Man<welcome@temporary.name>",
         "to": user_id,
         "subject": subj,
         "text": body,
