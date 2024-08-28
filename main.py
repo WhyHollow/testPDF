@@ -3,6 +3,7 @@ import base64
 import os
 import re
 import tempfile
+
 import time
 import subprocess
 from concurrent.futures import ProcessPoolExecutor
@@ -13,7 +14,8 @@ from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Literal, Optional
 from uuid import uuid4
-
+from tempfile import NamedTemporaryFile
+from typing import List
 import aiofiles
 import aiohttp
 import httpx
@@ -96,7 +98,8 @@ auth0_public_key_cache = {
 
 @app.get("/")
 async def index():
-    return FileResponse("web/index.html")
+    return RedirectResponse(url="https://platogram.vercel.app")
+
 
 
 async def get_auth0_public_key():
@@ -161,7 +164,6 @@ async def verify_token_and_get_user_id(token: str = Depends(oauth2_scheme)):
 
 
 @app.post("/convert")
-
 async def convert(
     background_tasks: BackgroundTasks,
     user_id: str = Depends(verify_token_and_get_user_id),
@@ -171,36 +173,30 @@ async def convert(
     price: Optional[float] = Form(None),
     token: Optional[str] = Form(None),
 ):
-    if not lang:
+    if lang is None:
         lang = "en"
 
     if user_id in tasks and tasks[user_id].status == "running":
         raise HTTPException(status_code=400, detail="Conversion already in progress")
 
     if payload is None and file is None:
-        raise HTTPException(
-            status_code=400, detail="Either payload or file must be provided"
-        )
+        raise HTTPException(status_code=400, detail="Either payload or file must be provided")
 
     if payload is not None:
         request = ConversionRequest(payload=payload, lang=lang, price=price, token=token)
     else:
-        # Create a named temporary directory if it doesn't exist
-        tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
-        tmpdir.mkdir(parents=True, exist_ok=True)
-        file_ext = file.filename.split(".")[-1]
-        temp_file = Path(tmpdir) / f"{uuid4()}.{file_ext}"
-        file_content = await file.read()
-        with open(temp_file, "wb") as fd:
-            fd.write(file_content)
-            fd.close()
+        with NamedTemporaryFile(delete=False, suffix=f".{file.filename.split('.')[-1]}") as temp_file:
+            file_content = await file.read()
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
 
-        request = ConversionRequest(payload=f"file://{temp_file}", lang=lang)
+        request = ConversionRequest(payload=f"file://{temp_file_path}", lang=lang)
 
     tasks[user_id] = Task(start_time=datetime.now(), request=request, price=price, token=token)
     background_tasks.add_task(convert_and_send_with_error_handling, request, user_id)
-    return {"message": "Conversion started"}
 
+    # os.remove(temp_file_path)
+    return {"message": "Conversion started"}
 
 @app.get("/status")
 async def status(user_id: str = Depends(verify_token_and_get_user_id)) -> dict:
@@ -264,10 +260,37 @@ stderr:
     return stdout.decode(), stderr.decode()
 
 
-async def send_email(user_id: str, subj: str, body: str, files: list[Path]):
-    loop = asyncio.get_running_loop()
-    with ProcessPoolExecutor() as pool:
-        await loop.run_in_executor(pool, _send_email_sync, user_id, subj, body, files)
+async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
+    url = "https://api.resend.com/emails"
+    headers = {
+        "Authorization": f"Bearer {os.getenv('RESEND_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "from": "Platogram <onboarding@resend.dev>",
+        "to": user_id,
+        "subject": subj,
+        "text": body,
+        "attachments": []
+    }
+
+
+    for attachment in files:
+        async with aiofiles.open(attachment, "rb") as file:
+            content = await file.read()
+            encoded_content = base64.b64encode(content).decode('utf-8')
+            payload["attachments"].append({
+                "filename": attachment.name,
+                "content": encoded_content
+            })
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, headers=headers, json=payload) as response:
+            if response.status != 200:
+                raise Exception(f"Failed to send email. Status: {response.status}, Response: {await response.text()}")
+
+            return await response.text()
 
 
 async def convert_and_send_with_error_handling(
@@ -277,12 +300,9 @@ async def convert_and_send_with_error_handling(
         await convert_and_send(request, user_id)
         tasks[user_id].status = "done"
         print(f"No charge for user {user_id}")
-
     except Exception as e:
         print(f"Error in background task for user {user_id}: {str(e)}")
-
         error = str(e)
-        # Truncate and simplify error message for user-friendly display
         model = plato.llm.get_model("anthropic/claude-3-5-sonnet", key=os.getenv("ANTHROPIC_API_KEY"))
         error = model.prompt_model(messages=[
             plato.types.User(
@@ -295,14 +315,14 @@ async def convert_and_send_with_error_handling(
                 """
             )
         ])
-
-        error = error.strip()  # Remove any leading/trailing whitespace
+        error = error.strip()
         tasks[user_id].error = error
         tasks[user_id].status = "failed"
 
-
 async def convert_and_send(request: ConversionRequest, user_id: str):
+    # Создание временного каталога
     with tempfile.TemporaryDirectory() as tmpdir:
+        # Проверка корректности URL или пути к файлу
         if not (
             request.payload.startswith("http")
             or request.payload.startswith("file:///tmp/platogram_uploads")
@@ -312,22 +332,22 @@ async def convert_and_send(request: ConversionRequest, user_id: str):
             url = request.payload
 
         try:
+            # Выполнение конвертации
             stdout, stderr = await audio_to_paper(
                 url, request.lang, Path(tmpdir), user_id
             )
         finally:
+            # Удаление временного файла, если это файл
             if request.payload.startswith("file:///tmp/platogram_uploads"):
                 try:
-                    os.remove(
-                        request.payload.replace(
-                            "file:///tmp/platogram_uploads", "/tmp/platogram_uploads"
-                        )
+                    file_path = request.payload.replace(
+                        "file:///tmp/platogram_uploads", "/tmp/platogram_uploads"
                     )
+                    os.remove(file_path)
                 except OSError as e:
-                    print(
-                        f"Failed to delete temporary file {request.payload}: {e}"
-                    )
+                    print(f"Failed to delete temporary file {file_path}: {e}")
 
+        # Извлечение заголовка из stdout
         title_match = re.search(r"<title>(.*?)</title>", stdout, re.DOTALL)
         if title_match:
             title = title_match.group(1).strip()
@@ -335,6 +355,7 @@ async def convert_and_send(request: ConversionRequest, user_id: str):
             title = "👋"
             print("No title found in stdout, using default title")
 
+        # Извлечение аннотации из stdout
         abstract_match = re.search(r"<abstract>(.*?)</abstract>", stdout, re.DOTALL)
         if abstract_match:
             abstract = abstract_match.group(1).strip()
@@ -342,8 +363,10 @@ async def convert_and_send(request: ConversionRequest, user_id: str):
             abstract = ""
             print("No abstract found in stdout, using default abstract")
 
+        # Получение всех файлов из временного каталога
         files = [f for f in Path(tmpdir).glob("*") if f.is_file()]
 
+        # Формирование темы и текста сообщения
         subject = f"[Platogram] {title}"
         body = f"""Hi there!
 
@@ -358,9 +381,10 @@ Please reply to this e-mail if any suggestions, feedback, or questions.
 ---
 Support Platogram by donating here: https://buy.stripe.com/eVa29p3PK5OXbq84gl
 Suggested donation: $2 per hour of content converted."""
+
+        # Отправка email
         print(user_id, subject, body, files)
         await send_email(user_id, subject, body, files)
-
 
 async def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]):
     url = "https://api.resend.com/emails"
