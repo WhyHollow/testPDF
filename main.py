@@ -320,9 +320,9 @@ async def convert_and_send_with_error_handling(
         tasks[user_id].status = "failed"
 
 async def convert_and_send(request: ConversionRequest, user_id: str):
-    # Создание временного каталога
+
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Проверка корректности URL или пути к файлу
+        print(f"Received payload: {request.payload}")
         if not (
             request.payload.startswith("http")
             or request.payload.startswith("file:///tmp/platogram_uploads")
@@ -332,12 +332,12 @@ async def convert_and_send(request: ConversionRequest, user_id: str):
             url = request.payload
 
         try:
-            # Выполнение конвертации
+
             stdout, stderr = await audio_to_paper(
                 url, request.lang, Path(tmpdir), user_id
             )
         finally:
-            # Удаление временного файла, если это файл
+
             if request.payload.startswith("file:///tmp/platogram_uploads"):
                 try:
                     file_path = request.payload.replace(
