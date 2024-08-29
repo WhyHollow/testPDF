@@ -336,9 +336,9 @@ async def convert_and_send(request: ConversionRequest, user_id: str):
             url = request.payload
 
         try:
-            stdout, stderr = await audio_to_paper(
-                url, request.lang, Path(tmpdir), user_id
-            )
+           print(f"Processing with audio_to_paper: url={url}, lang={request.lang}, tmpdir={tmpdir}, user_id={user_id}")
+           stdout, stderr = await audio_to_paper(url, request.lang, Path(tmpdir), user_id)
+           print(f"Files in tmpdir after audio_to_paper: {list(Path(tmpdir).glob('*'))}")
         finally:
             if request.payload.startswith("file:///tmp/platogram_uploads"):
                 try:
