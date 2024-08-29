@@ -325,8 +325,8 @@ async def convert_and_send_with_error_handling(
         tasks[user_id].status = "failed"
 
 async def convert_and_send(request: ConversionRequest, user_id: str):
-    print("328" + str(request) , "temp" + str(tmpdir))
     with tempfile.TemporaryDirectory() as tmpdir:
+        print("328" + str(request) , "temp" + str(tmpdir))
         if not (
             request.payload.startswith("http")
             or request.payload.startswith("file:///tmp/platogram_uploads")
