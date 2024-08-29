@@ -194,7 +194,7 @@ async def convert(
             fd.write(file_content)
             fd.close()
 
-        print('197'+temp_file)
+        print('197' + temp_file)
         request = ConversionRequest(payload=f"file://{temp_file}", lang=lang)
 
     tasks[user_id] = Task(start_time=datetime.now(), request=request, price=price, token=token)
@@ -280,7 +280,7 @@ async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
         "attachments": []
     }
 
-    print("283"+ files)
+    print("283" + files)
     for attachment in files:
         async with aiofiles.open(attachment, "rb") as file:
             content = await file.read()
@@ -325,7 +325,7 @@ async def convert_and_send_with_error_handling(
         tasks[user_id].status = "failed"
 
 async def convert_and_send(request: ConversionRequest, user_id: str):
-    print("328"+ request , "temp"+tmpdir)
+    print("328" + request , "temp" + tmpdir)
     with tempfile.TemporaryDirectory() as tmpdir:
         if not (
             request.payload.startswith("http")
