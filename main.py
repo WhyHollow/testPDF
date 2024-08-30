@@ -234,7 +234,7 @@ async def audio_to_paper(
     # Get absolute path of current working directory
     script_path = Path().resolve() / "audio_to_paper.sh"
     command = f'cd {output_dir} && {script_path} "{url}" --lang {lang} --verbose'
-
+    print("237" + str(output_dir))
     if user_id in processes:
         raise RuntimeError("Conversion already in progress.")
 
@@ -324,7 +324,7 @@ async def convert_and_send_with_error_handling(
 
 async def convert_and_send(request: ConversionRequest, user_id: str):
     with tempfile.TemporaryDirectory() as tmpdir:
-        print("328" + str(request) , "temp" + str(tmpdir))
+
         if not (
             request.payload.startswith("http")
             or request.payload.startswith("file:///tmp/platogram_uploads")
