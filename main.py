@@ -194,7 +194,6 @@ async def convert(
             fd.write(file_content)
             fd.close()
 
-        print('197' + str(temp_file))
         request = ConversionRequest(payload=f"file://{temp_file}", lang=lang)
 
     tasks[user_id] = Task(start_time=datetime.now(), request=request, price=price, token=token)
@@ -234,7 +233,7 @@ async def audio_to_paper(
 ) -> tuple[str, str]:
     # Get absolute path of current working directory
     script_path = Path().resolve() / "audio_to_paper.sh"
-    command = f'cd {Path().resolve()} && {script_path} "{url}" --lang {lang} --verbose'
+    command = f'cd {output_dir} && {script_path} "{url}" --lang {lang} --verbose'
 
     if user_id in processes:
         raise RuntimeError("Conversion already in progress.")
@@ -280,7 +279,6 @@ async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
         "attachments": []
     }
 
-    print("283" + str(files))
     for attachment in files:
         async with aiofiles.open(attachment, "rb") as file:
             content = await file.read()
@@ -384,7 +382,6 @@ Support Platogram by donating here: https://buy.stripe.com/eVa29p3PK5OXbq84gl
 Suggested donation: $2 per hour of content converted."""
 
         # Отправка email
-        print(user_id, subject, body, files)
         await send_email(user_id, subject, body, files)
 
 async def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]):
