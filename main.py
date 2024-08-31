@@ -20,6 +20,7 @@ import aiofiles
 import aiohttp
 import httpx
 import jwt
+import json
 import stripe
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509 import load_pem_x509_certificate
@@ -211,7 +212,7 @@ async def convert(
             )
 
         job_data = job_status_response.json()
-        print("job_data" + job_data)
+        print(f"job_data: {json.dumps(job_data, indent=2)}")
         video_url = job_data.get('output_0')
 
 
