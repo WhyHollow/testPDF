@@ -209,8 +209,9 @@ async def convert(
                     "X-API-Key": "B6s3PV-pbYz52uK9s-0dIC9LfMU09RoCwRokiGjjPq4",
                 }
             )
-        print("job_data" + job_data)
+
         job_data = job_status_response.json()
+        print("job_data" + job_data)
         video_url = job_data.get('output_0')
 
 
