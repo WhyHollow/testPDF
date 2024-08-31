@@ -209,8 +209,8 @@ async def convert(
         if not video_url:
             raise HTTPException(status_code=500, detail="Failed to retrieve the video URL from Sieve")
         temp_file_path = await download_and_save_file(video_url)
-
-        request = ConversionRequest(payload=temp_file_path, lang=lang, price=price, token=token)
+        print(temp_file_path)
+        request = ConversionRequest(payload=f"file://{temp_file_path}", lang=lang, price=price, token=token)
     else:
         tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
         tmpdir.mkdir(parents=True, exist_ok=True)
