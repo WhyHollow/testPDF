@@ -180,38 +180,43 @@ async def convert(
 
     if payload is not None:
 
-        response = httpx.post(
-            "https://mango.sievedata.com/v2/push",
-            headers={
-                "Content-Type": "application/json",
-                "X-API-Key": "B6s3PV-pbYz52uK9s-0dIC9LfMU09RoCwRokiGjjPq4",
-            },
-            json={
-                "function": "sieve/youtube_to_mp4",
-                "inputs": {
-                    "url": payload,
-                    "resolution": "lowest-available",
-                    "include_audio": True
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://mango.sievedata.com/v2/push",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-API-Key": "B6s3PV-pbYz52uK9s-0dIC9LfMU09RoCwRokiGjjPq4",
+                },
+                json={
+                    "function": "sieve/youtube_to_mp4",
+                    "inputs": {
+                        "url": payload,
+                        "resolution": "lowest-available",
+                        "include_audio": True
+                    }
                 }
-            }
-        )
+            )
 
-        if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail="Failed to download video from YouTube")
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail="Failed to download video from YouTube")
 
-        job_id = response.json().get('id')
+            job_id = response.json().get('id')
 
-
-        job_status_response = httpx.get(
-            f"https://mango.sievedata.com/v2/jobs/{job_id}",
-            headers={
-                "X-API-Key": "B6s3PV-pbYz52uK9s-0dIC9LfMU09RoCwRokiGjjPq4",
-            }
-        )
-
+            print("Job id" + job_id)
+            job_status_response = await client.get(
+                f"https://mango.sievedata.com/v2/jobs/{job_id}",
+                headers={
+                    "X-API-Key": "B6s3PV-pbYz52uK9s-0dIC9LfMU09RoCwRokiGjjPq4",
+                }
+            )
+        print("job_data" + job_data)
         job_data = job_status_response.json()
-        video_url = job_data.get('output_0')  # Извлекаем URL скачанного видео
+        video_url = job_data.get('output_0')
 
+
+        if not video_url:
+            raise HTTPException(status_code=500, detail="Failed to retrieve the video URL from Sieve")
+        print(video_url)
         request = ConversionRequest(payload=video_url, lang=lang, price=price, token=token)
     else:
         tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
