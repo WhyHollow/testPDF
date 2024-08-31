@@ -41,7 +41,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-
+from pydub import AudioSegment
 
 import platogram as plato
 
@@ -209,7 +209,7 @@ async def convert(
         if not video_url:
             raise HTTPException(status_code=500, detail="Failed to retrieve the video URL from Sieve")
         temp_file_path = await download_and_save_file(video_url)
-        print(temp_file_path)
+
         request = ConversionRequest(payload=f"file://{temp_file_path}", lang=lang, price=price, token=token)
     else:
         tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
@@ -281,28 +281,38 @@ async def download_and_save_file(file_url: str) -> Path:
 
     async with httpx.AsyncClient() as client:
         response = await client.get(file_url)
-        response.raise_for_status()  # Проверяем успешность запроса
-
+        response.raise_for_status()
 
         content_type = response.headers.get('Content-Type', '')
+        original_file_ext = '.dat'
+
         if 'audio' in content_type:
-            file_ext = '.mp3'  # Или любое другое расширение для аудио
+            original_file_ext = '.mp3'
         elif 'video' in content_type:
-            file_ext = '.mp4'  # Или любое другое расширение для видео
-        elif 'pdf' in content_type:
-            file_ext = '.pdf'
-        else:
-            file_ext = '.dat'  # Универсальное расширение по умолчанию
+            original_file_ext = '.mp4'
 
 
-        temp_file_name = f"{uuid4().hex[:8]}{file_ext}"
-        temp_file_path = tmpdir / temp_file_name
+
+        original_file_name = f"{uuid4().hex[:8]}{original_file_ext}"
+        original_file_path = tmpdir / original_file_name
 
 
-        with open(temp_file_path, "wb") as fd:
+        with open(original_file_path, "wb") as fd:
             fd.write(response.content)
 
-    return temp_file_path
+
+        if original_file_ext != '.mp3':
+            audio = AudioSegment.from_file(original_file_path)
+            mp3_file_name = f"{uuid4().hex[:8]}.mp3"
+            mp3_file_path = tmpdir / mp3_file_name
+
+            audio.export(mp3_file_path, format="mp3")
+
+            original_file_path.unlink()
+
+            return mp3_file_path
+
+    return original_file_path
 
 async def audio_to_paper(
     url: str, lang: Language, output_dir: Path, user_id: str
