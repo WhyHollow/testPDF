@@ -281,7 +281,7 @@ async def download_and_save_file(file_url: str) -> Path:
 
 
     file_ext = Path(file_url).suffix
-    temp_file_name = f"{uuid4().hex[:10]}{file_ext}"
+    temp_file_name = f"{uuid4().hex[:4]}{file_ext}"
     temp_file_path = tmpdir / temp_file_name
 
     async with httpx.AsyncClient() as client:
