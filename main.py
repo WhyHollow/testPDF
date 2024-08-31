@@ -203,22 +203,13 @@ async def convert(
 
             job_id = response.json().get('id')
 
-            print("Job id" + job_id)
-            job_status_response = await client.get(
-                f"https://mango.sievedata.com/v2/jobs/{job_id}",
-                headers={
-                    "X-API-Key": "B6s3PV-pbYz52uK9s-0dIC9LfMU09RoCwRokiGjjPq4",
-                }
-            )
 
-        job_data = job_status_response.json()
-        print(f"job_data: {json.dumps(job_data, indent=2)}")
-        video_url = job_data.get('output_0')
+            video_url = await wait_for_job_completion(client, job_id)
 
 
         if not video_url:
             raise HTTPException(status_code=500, detail="Failed to retrieve the video URL from Sieve")
-        print(video_url)
+        print('video_url' + str(video_url))
         request = ConversionRequest(payload=video_url, lang=lang, price=price, token=token)
     else:
         tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
@@ -259,6 +250,20 @@ async def reset(user_id: str = Depends(verify_token_and_get_user_id)):
 
     return {"message": "Session reset"}
 
+async def wait_for_job_completion(client, job_id):
+    for _ in range(60):
+        job_status_response = await client.get(
+            f"https://mango.sievedata.com/v2/jobs/{job_id}",
+            headers={
+                "X-API-Key": "B6s3PV-pbYz52uK9s-0dIC9LfMU09RoCwRokiGjjPq4",
+            }
+        )
+        job_data = job_status_response.json()
+        if job_data.get('status') == 'completed':
+            return job_data.get('output_0')
+        await asyncio.sleep(5)
+
+    raise HTTPException(status_code=500, detail="Job did not complete in time")
 async def audio_to_paper(
     url: str, lang: Language, output_dir: Path, user_id: str
 ) -> tuple[str, str]:
