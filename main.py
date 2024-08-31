@@ -181,36 +181,37 @@ async def convert(
 
     if payload is not None:
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://mango.sievedata.com/v2/push",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-API-Key": "B6s3PV-pbYz52uK9s-0dIC9LfMU09RoCwRokiGjjPq4",
-                },
-                json={
-                    "function": "sieve/youtube_to_mp4",
-                    "inputs": {
-                        "url": payload,
-                        "resolution": "lowest-available",
-                        "include_audio": True
+        if is_youtube_url(payload):
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://mango.sievedata.com/v2/push",
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-API-Key": "B6s3PV-pbYz52uK9s-0dIC9LfMU09RoCwRokiGjjPq4",
+                    },
+                    json={
+                        "function": "sieve/youtube_to_mp4",
+                        "inputs": {
+                            "url": payload,
+                            "resolution": "lowest-available",
+                            "include_audio": True
+                        }
                     }
-                }
-            )
+                )
 
-            if response.status_code != 200:
-                raise HTTPException(status_code=response.status_code, detail="Failed to download video from YouTube")
+                if response.status_code != 200:
+                    raise HTTPException(status_code=response.status_code, detail="Failed to download video from YouTube")
 
-            job_id = response.json().get('id')
+                job_id = response.json().get('id')
+                video_url = await wait_for_job_completion(client, job_id)
 
-            video_url = await wait_for_job_completion(client, job_id)
+            if not video_url:
+                raise HTTPException(status_code=500, detail="Failed to retrieve the video URL from Sieve")
+            temp_file_path = await youtube_download_and_save_file(video_url)
 
-
-        if not video_url:
-            raise HTTPException(status_code=500, detail="Failed to retrieve the video URL from Sieve")
-        temp_file_path = await download_and_save_file(video_url)
-
-        request = ConversionRequest(payload=f"file://{temp_file_path}", lang=lang, price=price, token=token)
+            request = ConversionRequest(payload=f"file://{temp_file_path}", lang=lang, price=price, token=token)
+        else:
+            request = ConversionRequest(payload=payload, lang=lang, price=price, token=token)
     else:
         tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
         tmpdir.mkdir(parents=True, exist_ok=True)
@@ -226,6 +227,7 @@ async def convert(
     background_tasks.add_task(convert_and_send_with_error_handling, request, user_id)
 
     return {"message": "Conversion started"}
+
 
 @app.get("/status")
 async def status(user_id: str = Depends(verify_token_and_get_user_id)) -> dict:
@@ -268,14 +270,14 @@ async def wait_for_job_completion(client, job_id):
                 # Get the URL from the first output item
                 file_output = outputs[0].get('data', {})
                 url = file_output.get('url')
-                print(url)
+
                 if url:
                     return url
         await asyncio.sleep(5)
 
     raise HTTPException(status_code=500, detail="Job did not complete in time")
 
-async def download_and_save_file(file_url: str) -> Path:
+async def youtube_download_and_save_file(file_url: str) -> Path:
     tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
     tmpdir.mkdir(parents=True, exist_ok=True)
 
@@ -313,6 +315,15 @@ async def download_and_save_file(file_url: str) -> Path:
             return mp3_file_path
 
     return original_file_path
+
+def is_youtube_url(url: str) -> bool:
+    youtube_regex = (
+        r'(https?://)?(www\.)?'
+        '(youtube\.com/watch\?v=|youtu\.be/)'
+        '[\w-]{11}'
+    )
+    return re.match(youtube_regex, url) is not None
+
 
 async def audio_to_paper(
     url: str, lang: Language, output_dir: Path, user_id: str
