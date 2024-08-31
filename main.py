@@ -203,13 +203,13 @@ async def convert(
 
             job_id = response.json().get('id')
 
-
+            print(job_id)
             video_url = await wait_for_job_completion(client, job_id)
 
 
         if not video_url:
             raise HTTPException(status_code=500, detail="Failed to retrieve the video URL from Sieve")
-
+        print('video_url' + str(video_url))
         request = ConversionRequest(payload=video_url, lang=lang, price=price, token=token)
     else:
         tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
@@ -259,7 +259,7 @@ async def wait_for_job_completion(client, job_id):
             }
         )
         job_data = job_status_response.json()
-        print('video_url' + str(job_data))
+        print(job_data)
         if job_data.get('status') == 'completed':
             return job_data.get('output_0')
         await asyncio.sleep(5)
