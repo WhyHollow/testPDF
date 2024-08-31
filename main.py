@@ -258,7 +258,7 @@ async def wait_for_job_completion(client, job_id):
             }
         )
         job_data = job_status_response.json()
-        print(str(job_data))
+        print(json.dumps(job_data, indent=4))
         if job_data.get('status') == 'completed':
             return job_data.get('output_0')
         await asyncio.sleep(5)
