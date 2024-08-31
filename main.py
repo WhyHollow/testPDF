@@ -208,8 +208,9 @@ async def convert(
 
         if not video_url:
             raise HTTPException(status_code=500, detail="Failed to retrieve the video URL from Sieve")
-        print('video_url' + str(video_url))
-        request = ConversionRequest(payload=video_url, lang=lang, price=price, token=token)
+        temp_file_path = await download_and_save_file(video_url)
+
+        request = ConversionRequest(payload=temp_file_path, lang=lang, price=price, token=token)
     else:
         tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
         tmpdir.mkdir(parents=True, exist_ok=True)
@@ -273,6 +274,25 @@ async def wait_for_job_completion(client, job_id):
         await asyncio.sleep(5)
 
     raise HTTPException(status_code=500, detail="Job did not complete in time")
+async def download_and_save_file(file_url: str) -> Path:
+
+    tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
+    tmpdir.mkdir(parents=True, exist_ok=True)
+
+
+    file_ext = Path(file_url).suffix
+    temp_file_name = f"{uuid4().hex[:10]}{file_ext}"
+    temp_file_path = tmpdir / temp_file_name
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(file_url)
+        response.raise_for_status()
+
+
+        with open(temp_file_path, "wb") as fd:
+            fd.write(response.content)
+
+    return temp_file_path
 
 async def audio_to_paper(
     url: str, lang: Language, output_dir: Path, user_id: str
