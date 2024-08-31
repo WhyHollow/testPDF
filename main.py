@@ -100,8 +100,6 @@ auth0_public_key_cache = {
 async def index():
     return RedirectResponse(url="https://platogram.vercel.app")
 
-
-
 async def get_auth0_public_key():
     current_time = time.time()
 
@@ -136,7 +134,6 @@ async def get_auth0_public_key():
 
     return public_key
 
-
 async def verify_token_and_get_user_id(token: str = Depends(oauth2_scheme)):
     try:
         public_key = await get_auth0_public_key()
@@ -162,14 +159,13 @@ async def verify_token_and_get_user_id(token: str = Depends(oauth2_scheme)):
     except Exception as e:
         raise HTTPException(status_code=401, detail="Couldn't verify token")
 
-
 @app.post("/convert")
 async def convert(
     background_tasks: BackgroundTasks,
     user_id: str = Depends(verify_token_and_get_user_id),
     file: Optional[UploadFile] = File(None),
     payload: Optional[str] = Form(None),
-    lang: Optional[Language] = Form(None),
+    lang: Optional[str] = Form(None),
     price: Optional[float] = Form(None),
     token: Optional[str] = Form(None),
 ):
@@ -183,7 +179,40 @@ async def convert(
         raise HTTPException(status_code=400, detail="Either payload or file must be provided")
 
     if payload is not None:
-        request = ConversionRequest(payload=payload, lang=lang, price=price, token=token)
+
+        response = httpx.post(
+            "https://mango.sievedata.com/v2/push",
+            headers={
+                "Content-Type": "application/json",
+                "X-API-Key": "B6s3PV-pbYz52uK9s-0dIC9LfMU09RoCwRokiGjjPq4",
+            },
+            json={
+                "function": "sieve/youtube_to_mp4",
+                "inputs": {
+                    "url": payload,
+                    "resolution": "lowest-available",
+                    "include_audio": True
+                }
+            }
+        )
+
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail="Failed to download video from YouTube")
+
+        job_id = response.json().get('id')
+
+
+        job_status_response = httpx.get(
+            f"https://mango.sievedata.com/v2/jobs/{job_id}",
+            headers={
+                "X-API-Key": "B6s3PV-pbYz52uK9s-0dIC9LfMU09RoCwRokiGjjPq4",
+            }
+        )
+
+        job_data = job_status_response.json()
+        video_url = job_data.get('output_0')  # Извлекаем URL скачанного видео
+
+        request = ConversionRequest(payload=video_url, lang=lang, price=price, token=token)
     else:
         tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
         tmpdir.mkdir(parents=True, exist_ok=True)
@@ -192,14 +221,12 @@ async def convert(
         file_content = await file.read()
         with open(temp_file, "wb") as fd:
             fd.write(file_content)
-            fd.close()
 
         request = ConversionRequest(payload=f"file://{temp_file}", lang=lang)
 
     tasks[user_id] = Task(start_time=datetime.now(), request=request, price=price, token=token)
     background_tasks.add_task(convert_and_send_with_error_handling, request, user_id)
 
-    # os.remove(temp_file_path)
     return {"message": "Conversion started"}
 
 @app.get("/status")
@@ -214,9 +241,7 @@ async def status(user_id: str = Depends(verify_token_and_get_user_id)) -> dict:
         return {"status": "done"}
     return {"status": "idle"}
 
-
 @app.get("/reset")
-
 async def reset(user_id: str = Depends(verify_token_and_get_user_id)):
     if user_id in processes:
         processes[user_id].terminate()
@@ -227,14 +252,13 @@ async def reset(user_id: str = Depends(verify_token_and_get_user_id)):
 
     return {"message": "Session reset"}
 
-
 async def audio_to_paper(
     url: str, lang: Language, output_dir: Path, user_id: str
 ) -> tuple[str, str]:
     # Get absolute path of current working directory
     script_path = Path().resolve() / "audio_to_paper.sh"
     command = f'cd {output_dir} && {script_path} "{url}" --lang {lang} --verbose'
-    print("237" + str(output_dir))
+
     if user_id in processes:
         raise RuntimeError("Conversion already in progress.")
 
@@ -262,7 +286,6 @@ stderr:
 {stderr.decode()}""")
     print("Decode stdout:" + stdout.decode(), "Decode stderr:" + stderr.decode())
     return stdout.decode(), stderr.decode()
-
 
 async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
     url = "https://api.resend.com/emails"
@@ -294,7 +317,6 @@ async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
                 raise Exception(f"Failed to send email. Status: {response.status}, Response: {await response.text()}")
 
             return await response.text()
-
 
 async def convert_and_send_with_error_handling(
     request: ConversionRequest, user_id: str
@@ -334,9 +356,9 @@ async def convert_and_send(request: ConversionRequest, user_id: str):
             url = request.payload
 
         try:
-           print(f"Processing with audio_to_paper: url={url}, lang={request.lang}, tmpdir={tmpdir}, user_id={user_id}")
+
            stdout, stderr = await audio_to_paper(url, request.lang, Path(tmpdir), user_id)
-           print(f"Files in tmpdir after audio_to_paper: {list(Path(tmpdir).glob('*'))}")
+
         finally:
             if request.payload.startswith("file:///tmp/platogram_uploads"):
                 try:
@@ -412,7 +434,6 @@ async def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]
         async with session.post(url, headers=headers, json=payload) as response:
             return response
 
-
 def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
     for attempt in range(max_retries):
         try:
@@ -423,7 +444,6 @@ def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
                 time.sleep(delay)
             else:
                 raise error
-
 
 def delete_with_retry(service, message_id, max_retries=5, initial_delay=1):
     for attempt in range(max_retries):
@@ -437,7 +457,6 @@ def delete_with_retry(service, message_id, max_retries=5, initial_delay=1):
             else:
                 raise error
 
-
 def get_gmail_service():
     credentials = service_account.Credentials.from_service_account_file(
         ".id/google-service-account.json", scopes=SCOPES)
@@ -445,7 +464,6 @@ def get_gmail_service():
     delegated_credentials = credentials.with_subject(user_email)
 
     return delegated_credentials
-
 
 if __name__ == "__main__":
     import uvicorn
