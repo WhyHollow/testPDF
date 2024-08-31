@@ -203,7 +203,6 @@ async def convert(
 
             job_id = response.json().get('id')
 
-            print(job_id)
             video_url = await wait_for_job_completion(client, job_id)
 
 
@@ -259,12 +258,13 @@ async def wait_for_job_completion(client, job_id):
             }
         )
         job_data = job_status_response.json()
-        print(job_data)
+        print(str(job_data))
         if job_data.get('status') == 'completed':
             return job_data.get('output_0')
         await asyncio.sleep(5)
 
     raise HTTPException(status_code=500, detail="Job did not complete in time")
+
 async def audio_to_paper(
     url: str, lang: Language, output_dir: Path, user_id: str
 ) -> tuple[str, str]:
