@@ -274,19 +274,29 @@ async def wait_for_job_completion(client, job_id):
         await asyncio.sleep(5)
 
     raise HTTPException(status_code=500, detail="Job did not complete in time")
-async def download_and_save_file(file_url: str) -> Path:
 
+async def download_and_save_file(file_url: str) -> Path:
     tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
     tmpdir.mkdir(parents=True, exist_ok=True)
 
-
-    file_ext = Path(file_url).suffix
-    temp_file_name = f"{uuid4().hex[:4]}{file_ext}"
-    temp_file_path = tmpdir / temp_file_name
-
     async with httpx.AsyncClient() as client:
         response = await client.get(file_url)
-        response.raise_for_status()
+        response.raise_for_status()  # Проверяем успешность запроса
+
+
+        content_type = response.headers.get('Content-Type', '')
+        if 'audio' in content_type:
+            file_ext = '.mp3'  # Или любое другое расширение для аудио
+        elif 'video' in content_type:
+            file_ext = '.mp4'  # Или любое другое расширение для видео
+        elif 'pdf' in content_type:
+            file_ext = '.pdf'
+        else:
+            file_ext = '.dat'  # Универсальное расширение по умолчанию
+
+
+        temp_file_name = f"{uuid4().hex[:8]}{file_ext}"
+        temp_file_path = tmpdir / temp_file_name
 
 
         with open(temp_file_path, "wb") as fd:
