@@ -180,7 +180,6 @@ async def convert(
         raise HTTPException(status_code=400, detail="Either payload or file must be provided")
 
     if payload is not None:
-
         if is_youtube_url(payload):
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -357,7 +356,6 @@ stdout:
 
 stderr:
 {stderr.decode()}""")
-    print("Decode stdout:" + stdout.decode(), "Decode stderr:" + stderr.decode())
     return stdout.decode(), stderr.decode()
 
 async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
@@ -461,20 +459,24 @@ async def convert_and_send(request: ConversionRequest, user_id: str):
 
         files = [f for f in Path(tmpdir).glob("*") if f.is_file()]
 
-        subject = f"[Platogram] {title}"
-        body = f"""Hi there!
+        subject = f"Your Content, Shrunk and Structured: {title}"
+        body = f"""Greetings!
 
-Platogram transformed spoken words into documents you can read and enjoy, or attach to ChatGPT/Claude/etc and prompt!
+Your audio content has been transformed into actionable intelligence.
+Attached you'll find two PDF documents:
 
-You'll find two PDF documents attached: full version, with original transcript and references, and a simplified version, without the transcript and references. I hope this helps!
+1. A comprehensive version, including the original transcript and detailed references.
+2. A streamlined version, focusing on key insights without transcript and references.
 
-{abstract}
+These documents have been shrunk and structured for both human comprehension and AI integration with platforms like ChatGPT or Claude, enabling deeper, more contextual prompts.
 
-Please reply to this e-mail if any suggestions, feedback, or questions.
+In a nutshell: {abstract}
+
+We welcome your feedback, suggestions, or questions. Please reply to this email to help us enhance your experience with our service.
 
 ---
-Support Platogram by donating here: https://buy.stripe.com/eVa29p3PK5OXbq84gl
-Suggested donation: $2 per hour of content converted."""
+Cya,
+Artyom & Ivan"""
 
         # Отправка email
         await send_email(user_id, subject, body, files)
