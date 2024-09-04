@@ -544,6 +544,8 @@ async def check_and_add_user(user_id: str):
                             await asyncio.sleep(1)
                         elif post_response.status != 200:
                             print(f"Failed to add contact. Status: {post_response.status}, Response: {await post_response.text()}")
+                        elif post_response.status == 201:
+                            break
                         else:
                             break
 
