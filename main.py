@@ -525,6 +525,7 @@ async def check_and_add_user(user_id: str):
     }
 
     async with aiohttp.ClientSession() as session:
+        await asyncio.sleep(0.5)
         async with session.get(get_url, headers=headers) as response:
             if response.status != 200:
                 print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
@@ -535,9 +536,16 @@ async def check_and_add_user(user_id: str):
                 print(f"User {user_id} already exists in the contact list.")
             else:
                 payload = {"email": user_id}
-                async with session.post(post_url, headers=headers, json=payload) as post_response:
-                    if post_response.status != 200:
-                        print(f"Failed to add contact. Status: {post_response.status}, Response: {await post_response.text()}")
+                while True:
+                    await asyncio.sleep(0.5)
+                    async with session.post(post_url, headers=headers, json=payload) as post_response:
+                        if post_response.status == 429:
+                            print("Rate limit exceeded, retrying...")
+                            await asyncio.sleep(1)
+                        elif post_response.status != 200:
+                            print(f"Failed to add contact. Status: {post_response.status}, Response: {await post_response.text()}")
+                        else:
+                            break
 
 
 def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
