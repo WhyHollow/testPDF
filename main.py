@@ -536,18 +536,18 @@ async def check_and_add_user(user_id: str):
                 print(f"User {user_id} already exists in the contact list.")
             else:
                 payload = {"email": user_id}
-                while True:
-                    await asyncio.sleep(0.5)
-                    async with session.post(post_url, headers=headers, json=payload) as post_response:
-                        if post_response.status == 429:
-                            print("Rate limit exceeded, retrying...")
-                            await asyncio.sleep(1)
-                        elif post_response.status != 200:
-                            print(f"Failed to add contact. Status: {post_response.status}, Response: {await post_response.text()}")
-                        elif post_response.status == 201:
-                            break
-                        else:
-                            break
+
+                await asyncio.sleep(1)
+                async with session.post(post_url, headers=headers, json=payload) as post_response:
+                    response_status = post_response.status
+                    response_text = await post_response.text()
+
+                    if response_status == 429:
+                        print("Rate limit exceeded. Please try again later.")
+                    elif response_status == 201:
+                        print(f"User {user_id} has been added to the contact list.")
+                    else:
+                        print(f"Failed to add contact. Status: {response_status}, Response: {response_text}")
 
 
 def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
