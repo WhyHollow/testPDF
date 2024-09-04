@@ -480,6 +480,7 @@ Artyom & Ivan"""
 
         # Отправка email
         await send_email(user_id, subject, body, files)
+        await check_and_add_user(user_id)
 
 async def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]):
     url = "https://api.resend.com/emails"
@@ -508,6 +509,36 @@ async def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=payload) as response:
             return response
+
+async def check_and_add_user(user_id: str):
+
+    get_url = 'https://api.resend.com/audiences/e8c5a23e-ff4a-4b07-917c-9f9cd4325c4f/contacts'
+    post_url = get_url
+    api_key = os.getenv('RESEND_API_KEY')
+
+    if not api_key:
+        print("API key is not set in environment variables.")
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(get_url, headers=headers) as response:
+            if response.status != 200:
+                print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
+            data = await response.json()
+            contacts = data.get("data", [])
+            user_exists = any(contact['email'] == user_id for contact in contacts)
+            if user_exists:
+                print(f"User {user_id} already exists in the contact list.")
+            else:
+                payload = {"email": user_id}
+                async with session.post(post_url, headers=headers, json=payload) as post_response:
+                    if post_response.status != 200:
+                        print(f"Failed to add contact. Status: {post_response.status}, Response: {await post_response.text()}")
+
 
 def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
     for attempt in range(max_retries):
