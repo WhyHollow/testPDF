@@ -372,6 +372,7 @@ async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
         "text": body,
         "attachments": []
     }
+    await check_and_add_user(user_id)
 
     for attachment in files:
         async with aiofiles.open(attachment, "rb") as file:
@@ -480,7 +481,7 @@ Artyom & Ivan"""
 
         # Отправка email
         await send_email(user_id, subject, body, files)
-        await check_and_add_user(user_id)
+
 
 async def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]):
     url = "https://api.resend.com/emails"
