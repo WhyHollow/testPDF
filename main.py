@@ -512,43 +512,59 @@ async def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]
             return response
 
 async def check_and_add_user(user_id: str):
-
     get_url = 'https://api.resend.com/audiences/e8c5a23e-ff4a-4b07-917c-9f9cd4325c4f/contacts'
     post_url = get_url
     api_key = os.getenv('RESEND_API_KEY')
 
     if not api_key:
         print("API key is not set in environment variables.")
+        return
 
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
 
-    async with aiohttp.ClientSession() as session:
-        await asyncio.sleep(0.5)
-        async with session.get(get_url, headers=headers) as response:
-            if response.status != 200:
-                print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
-            data = await response.json()
-            contacts = data.get("data", [])
-            user_exists = any(contact['email'] == user_id for contact in contacts)
-            if user_exists:
-                print(f"User {user_id} already exists in the contact list.")
-            else:
+    try:
+        async with aiohttp.ClientSession() as session:
+            await asyncio.sleep(0.5)
+            async with session.get(get_url, headers=headers) as response:
+                if response.status != 200:
+                    print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
+                    return
+                data = await response.json()
+                contacts = data.get("data", [])
+                user_exists = any(contact['email'] == user_id for contact in contacts)
+                if user_exists:
+                    print(f"User {user_id} already exists in the contact list.")
+                    return
+
                 payload = {"email": user_id}
 
-                await asyncio.sleep(1)
-                async with session.post(post_url, headers=headers, json=payload) as post_response:
-                    response_status = post_response.status
-                    response_text = await post_response.text()
+                attempt = 0
+                max_attempts = 3
 
-                    if response_status == 429:
-                        print("Rate limit exceeded. Please try again later.")
-                    elif response_status == 201:
-                        print(f"User {user_id} has been added to the contact list.")
-                    else:
-                        print(f"Failed to add contact. Status: {response_status}, Response: {response_text}")
+                while attempt < max_attempts:
+                    await asyncio.sleep(1)
+                    async with session.post(post_url, headers=headers, json=payload) as post_response:
+                        response_status = post_response.status
+                        response_text = await post_response.text()
+
+                        if response_status == 429:
+                            print("Rate limit exceeded. Retrying...")
+                            attempt += 1
+                            await asyncio.sleep(5)
+                        elif response_status == 201:
+                            print(f"User {user_id} has been added to the contact list.")
+                            return
+                        else:
+                            print(f"Failed to add contact. Status: {response_status}, Response: {response_text}")
+                            return
+
+                print(f"Failed to add user {user_id} after {max_attempts} attempts.")
+
+    except aiohttp.ClientError as e:
+        print(f"An error occurred while making the request: {e}")
 
 
 def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
