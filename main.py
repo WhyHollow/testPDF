@@ -19,6 +19,7 @@ from typing import List
 import aiofiles
 import aiohttp
 import httpx
+
 import jwt
 import json
 import stripe
@@ -563,6 +564,8 @@ async def check_and_add_user(user_id: str):
 
                 print(f"Failed to add user {user_id} after {max_attempts} attempts.")
 
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 
 def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
