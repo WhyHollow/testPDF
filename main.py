@@ -563,8 +563,6 @@ async def check_and_add_user(user_id: str):
 
                 print(f"Failed to add user {user_id} after {max_attempts} attempts.")
 
-    except aiohttp.ClientError as e:
-        print(f"An error occurred while making the request: {e}")
 
 
 def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
