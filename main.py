@@ -373,7 +373,7 @@ async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
         "text": body,
         "attachments": []
     }
-    await check_and_add_user(user_id)
+
 
     for attachment in files:
         async with aiofiles.open(attachment, "rb") as file:
@@ -383,12 +383,13 @@ async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
                 "filename": attachment.name,
                 "content": encoded_content
             })
-
+    await asyncio.sleep(4)
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=payload) as response:
             if response.status != 200:
                 raise Exception(f"Failed to send email. Status: {response.status}, Response: {await response.text()}")
-
+            else:
+                await check_and_add_user(user_id)
             return await response.text()
 
 async def convert_and_send_with_error_handling(
@@ -512,7 +513,6 @@ async def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]
         async with session.post(url, headers=headers, json=payload) as response:
             return response
 
-lock = asyncio.Lock()
 async def check_and_add_user(user_id: str):
     get_url = 'https://api.resend.com/audiences/e8c5a23e-ff4a-4b07-917c-9f9cd4325c4f/contacts'
     post_url = get_url
@@ -527,38 +527,38 @@ async def check_and_add_user(user_id: str):
         "Content-Type": "application/json"
     }
 
-    async with lock:  # Используем блокировку для обеспечения одновременного выполнения
-        try:
-            async with aiohttp.ClientSession() as session:
-                await asyncio.sleep(0.5)
-                async with session.get(get_url, headers=headers) as response:
-                    if response.status != 200:
-                        print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
-                        return
-                    data = await response.json()
-                    contacts = data.get("data", [])
-                    user_exists = any(contact['email'] == user_id for contact in contacts)
-                    if user_exists:
-                        print(f"User {user_id} already exists in the contact list.")
-                        return
+    try:
+        async with aiohttp.ClientSession() as session:
+            await asyncio.sleep(1.5)
+            async with session.get(get_url, headers=headers) as response:
+                if response.status != 200:
+                    print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
+                    return
+                data = await response.json()
+                contacts = data.get("data", [])
+                user_exists = any(contact['email'] == user_id for contact in contacts)
+                if user_exists:
+                    print(f"User {user_id} already exists in the contact list.")
+                    return
 
-                    payload = {"email": user_id}
+                payload = {"email": user_id}
 
-                    await asyncio.sleep(1)
-                    async with session.post(post_url, headers=headers, json=payload) as post_response:
-                        response_status = post_response.status
-                        response_text = await post_response.text()
+                await asyncio.sleep(4)
+                async with session.post(post_url, headers=headers, json=payload) as post_response:
+                    response_status = post_response.status
+                    response_text = await post_response.text()
 
-                        if response_status == 429:
-                            print("Rate limit exceeded. Please try again later.")
-                        elif response_status == 201:
-                            print(f"User {user_id} has been added to the contact list.")
-                        else:
-                            print(f"Failed to add contact. Status: {response_status}, Response: {response_text}")
-                        return
+                    if response_status == 429:
+                        print("Rate limit exceeded. Please try again later.")
+                    elif response_status == 201:
+                        print(f"User {user_id} has been added to the contact list.")
+                    else:
+                        print(f"Failed to add contact. Status: {response_status}, Response: {response_text}")
+                    return
 
-        except Exception as e:
-            print(f"An error occurred: {e}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 
 
 def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
