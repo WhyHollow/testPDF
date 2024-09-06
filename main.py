@@ -527,37 +527,45 @@ async def check_and_add_user(user_id: str):
         "Content-Type": "application/json"
     }
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            await asyncio.sleep(1.5)
-            async with session.get(get_url, headers=headers) as response:
-                if response.status != 200:
-                    print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
-                    return
-                data = await response.json()
-                contacts = data.get("data", [])
-                user_exists = any(contact['email'] == user_id for contact in contacts)
-                if user_exists:
-                    print(f"User {user_id} already exists in the contact list.")
-                    return
+    max_attempts = 3
+    attempt = 0
 
-                payload = {"email": user_id}
+    while attempt < max_attempts:
+        try:
+            async with aiohttp.ClientSession() as session:
+                await asyncio.sleep(1.5)
+                async with session.get(get_url, headers=headers) as response:
+                    if response.status != 200:
+                        print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
+                        return
+                    data = await response.json()
+                    contacts = data.get("data", [])
+                    user_exists = any(contact['email'] == user_id for contact in contacts)
+                    if user_exists:
+                        print(f"User {user_id} already exists in the contact list.")
+                        return
 
-                await asyncio.sleep(4)
-                async with session.post(post_url, headers=headers, json=payload) as post_response:
-                    response_status = post_response.status
-                    response_text = await post_response.text()
+                    payload = {"email": user_id}
 
-                    if response_status == 429:
-                        print("Rate limit exceeded. Please try again later.")
-                    elif response_status == 201:
-                        print(f"User {user_id} has been added to the contact list.")
-                    else:
-                        print(f"Failed to add contact. Status: {response_status}, Response: {response_text}")
-                    return
+                    await asyncio.sleep(2)
+                    async with session.post(post_url, headers=headers, json=payload) as post_response:
+                        response_status = post_response.status
+                        response_text = await post_response.text()
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
+                        if response_status == 429:
+                            print("Rate limit exceeded. Retrying...")
+                            attempt += 1
+                            await asyncio.sleep(5)
+                        elif response_status == 201:
+                            print(f"User {user_id} has been added to the contact list.")
+                            return
+                        else:
+                            print(f"Failed to add contact. Status: {response_status}, Response: {response_text}")
+                            return
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return
 
 
 
