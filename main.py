@@ -559,9 +559,7 @@ async def check_and_add_user(user_id: str):
                         elif response_status == 201:
                             print(f"User {user_id} has been added to the contact list.")
                             return
-                        else:
-                            print(f"Failed to add contact. Status: {response_status}, Response: {response_text}")
-                            return
+
 
         except Exception as e:
             print(f"An error occurred: {e}")
