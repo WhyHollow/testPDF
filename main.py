@@ -531,41 +531,33 @@ async def check_and_add_user(user_id: str):
     attempt = 0
 
     while attempt < max_attempts:
-        try:
-            async with aiohttp.ClientSession() as session:
-                await asyncio.sleep(1.5)
-                async with session.get(get_url, headers=headers) as response:
-                    if response.status != 200:
-                        print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
+        async with aiohttp.ClientSession() as session:
+            await asyncio.sleep(1.5)
+            async with session.get(get_url, headers=headers) as response:
+                if response.status != 200:
+                    print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
+                    return
+                data = await response.json()
+                contacts = data.get("data", [])
+                user_exists = any(contact['email'] == user_id for contact in contacts)
+                if user_exists:
+                    print(f"User {user_id} already exists in the contact list.")
+                    return
+
+                payload = {"email": user_id}
+
+                await asyncio.sleep(2)
+                async with session.post(post_url, headers=headers, json=payload) as post_response:
+                    response_status = post_response.status
+
+
+                    if response_status == 429:
+                        print("Rate limit exceeded. Retrying...")
+                        attempt += 1
+                        await asyncio.sleep(5)
+                    elif response_status == 201:
+                        print(f"User {user_id} has been added to the contact list.")
                         return
-                    data = await response.json()
-                    contacts = data.get("data", [])
-                    user_exists = any(contact['email'] == user_id for contact in contacts)
-                    if user_exists:
-                        print(f"User {user_id} already exists in the contact list.")
-                        return
-
-                    payload = {"email": user_id}
-
-                    await asyncio.sleep(2)
-                    async with session.post(post_url, headers=headers, json=payload) as post_response:
-                        response_status = post_response.status
-                        response_text = await post_response.text()
-
-                        if response_status == 429:
-                            print("Rate limit exceeded. Retrying...")
-                            attempt += 1
-                            await asyncio.sleep(5)
-                        elif response_status == 201:
-                            print(f"User {user_id} has been added to the contact list.")
-                            return
-
-
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            return
-
-
 
 def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
     for attempt in range(max_retries):
