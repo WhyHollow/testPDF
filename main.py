@@ -387,8 +387,6 @@ async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
         async with session.post(url, headers=headers, json=payload) as response:
             if response.status != 200:
                 raise Exception(f"Failed to send email. Status: {response.status}, Response: {await response.text()}")
-            else:
-                await check_and_add_user(user_id)
             return await response.text()
 
 async def convert_and_send_with_error_handling(
@@ -512,45 +510,45 @@ async def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]
         async with session.post(url, headers=headers, json=payload) as response:
             return response
 
-async def check_and_add_user(user_id: str):
-    api_key = os.getenv('RESEND_API_KEY')
-    if not api_key:
-        raise HTTPException(status_code=500, detail="API key is not set in environment variables.")
+# async def check_and_add_user(user_id: str):
+#     api_key = os.getenv('RESEND_API_KEY')
+#     if not api_key:
+#         raise HTTPException(status_code=500, detail="API key is not set in environment variables.")
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
+#     headers = {
+#         "Authorization": f"Bearer {api_key}",
+#         "Content-Type": "application/json"
+#     }
 
-    base_url = 'https://api.resend.com/audiences/e8c5a23e-ff4a-4b07-917c-9f9cd4325c4f/contacts'
+#     base_url = 'https://api.resend.com/audiences/e8c5a23e-ff4a-4b07-917c-9f9cd4325c4f/contacts'
 
-    async with aiohttp.ClientSession() as session:
-        # Step 1: Retrieve ALL contacts
-        async with session.get(base_url, headers=headers) as response:
-            if response.status != 200:
-                print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
-                raise HTTPException(status_code=response.status, detail="Failed to retrieve contacts")
+#     async with aiohttp.ClientSession() as session:
+#         # Step 1: Retrieve ALL contacts
+#         async with session.get(base_url, headers=headers) as response:
+#             if response.status != 200:
+#                 print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
+#                 raise HTTPException(status_code=response.status, detail="Failed to retrieve contacts")
 
-            data = await response.json()
-            contacts = data.get("data", [])
+#             data = await response.json()
+#             contacts = data.get("data", [])
 
-        # Step 2: Check if user's email is in the list
-        user_exists = any(contact['email'] == user_id for contact in contacts)
+#         # Step 2: Check if user's email is in the list
+#         user_exists = any(contact['email'] == user_id for contact in contacts)
 
-        # Step 3 & 4: If user doesn't exist, try to add once
-        if not user_exists:
-            payload = {"email": user_id}
+#         # Step 3 & 4: If user doesn't exist, try to add once
+#         if not user_exists:
+#             payload = {"email": user_id}
 
-            async with session.post(base_url, headers=headers, json=payload) as response:
-                if response.status == 201:
-                    print(f"User {user_id} has been added to the contact list.")
-                    return {"status": "added", "message": f"User {user_id} has been added to the contact list."}
-                else:
-                    print(f"Failed to add user. Status: {response.status}, Response: {await response.text()}")
-                    raise HTTPException(status_code=response.status, detail="Failed to add user")
-        else:
-            print(f"User {user_id} already exists in the contact list.")
-            return {"status": "exists", "message": f"User {user_id} already exists in the contact list."}
+#             async with session.post(base_url, headers=headers, json=payload) as response:
+#                 if response.status == 201:
+#                     print(f"User {user_id} has been added to the contact list.")
+#                     return {"status": "added", "message": f"User {user_id} has been added to the contact list."}
+#                 else:
+#                     print(f"Failed to add user. Status: {response.status}, Response: {await response.text()}")
+#                     raise HTTPException(status_code=response.status, detail="Failed to add user")
+#         else:
+#             print(f"User {user_id} already exists in the contact list.")
+#             return {"status": "exists", "message": f"User {user_id} already exists in the contact list."}
 
 def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
     for attempt in range(max_retries):
