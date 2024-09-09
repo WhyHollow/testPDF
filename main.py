@@ -383,7 +383,6 @@ async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
                 "filename": attachment.name,
                 "content": encoded_content
             })
-    await asyncio.sleep(4)
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=payload) as response:
             if response.status != 200:
@@ -514,50 +513,44 @@ async def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]
             return response
 
 async def check_and_add_user(user_id: str):
-    get_url = 'https://api.resend.com/audiences/e8c5a23e-ff4a-4b07-917c-9f9cd4325c4f/contacts'
-    post_url = get_url
     api_key = os.getenv('RESEND_API_KEY')
-
     if not api_key:
-        print("API key is not set in environment variables.")
-        return
+        raise HTTPException(status_code=500, detail="API key is not set in environment variables.")
 
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
 
-    max_attempts = 3
-    attempt = 0
+    base_url = 'https://api.resend.com/audiences/e8c5a23e-ff4a-4b07-917c-9f9cd4325c4f/contacts'
 
-    while attempt < max_attempts:
-        async with aiohttp.ClientSession() as session:
-            await asyncio.sleep(1.5)
-            async with session.get(get_url, headers=headers) as response:
-                if response.status != 200:
-                    print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
-                    return
-                data = await response.json()
-                contacts = data.get("data", [])
-                user_exists = any(contact['email'] == user_id for contact in contacts)
-                if user_exists:
-                    print(f"User {user_id} already exists in the contact list.")
-                    return
+    async with aiohttp.ClientSession() as session:
+        # Step 1: Retrieve ALL contacts
+        async with session.get(base_url, headers=headers) as response:
+            if response.status != 200:
+                print(f"Failed to get contacts. Status: {response.status}, Response: {await response.text()}")
+                raise HTTPException(status_code=response.status, detail="Failed to retrieve contacts")
 
-                payload = {"email": user_id}
+            data = await response.json()
+            contacts = data.get("data", [])
 
-                await asyncio.sleep(2)
-                async with session.post(post_url, headers=headers, json=payload) as post_response:
-                    response_status = post_response.status
+        # Step 2: Check if user's email is in the list
+        user_exists = any(contact['email'] == user_id for contact in contacts)
 
+        # Step 3 & 4: If user doesn't exist, try to add once
+        if not user_exists:
+            payload = {"email": user_id}
 
-                    if response_status == 429:
-                        print("Rate limit exceeded. Retrying...")
-                        attempt += 1
-                        await asyncio.sleep(5)
-                    elif response_status == 201:
-                        print(f"User {user_id} has been added to the contact list.")
-                        return
+            async with session.post(base_url, headers=headers, json=payload) as response:
+                if response.status == 201:
+                    print(f"User {user_id} has been added to the contact list.")
+                    return {"status": "added", "message": f"User {user_id} has been added to the contact list."}
+                else:
+                    print(f"Failed to add user. Status: {response.status}, Response: {await response.text()}")
+                    raise HTTPException(status_code=response.status, detail="Failed to add user")
+        else:
+            print(f"User {user_id} already exists in the contact list.")
+            return {"status": "exists", "message": f"User {user_id} already exists in the contact list."}
 
 def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
     for attempt in range(max_retries):
