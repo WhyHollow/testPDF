@@ -286,25 +286,30 @@ async def wait_for_job_completion(client, job_id):
 async def youtube_download_and_save_file(file_url: str) -> Path:
     tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
     tmpdir.mkdir(parents=True, exist_ok=True)
-    print("file_url" + str(file_url))
-    async with httpx.AsyncClient() as client:
+
+    async with httpx.AsyncClient(headers={'User-Agent': 'Mozilla/5.0'}, follow_redirects=False) as client:
         response = await client.get(file_url)
-        response.raise_for_status()
-        print(str(response))
+
+        if response.status_code == 302:
+            new_url = response.headers.get("Location")
+            if new_url:
+                response = await client.get(new_url)
+                response.raise_for_status()
+
+
         content_type = response.headers.get('Content-Type', '')
         original_file_ext = '.dat'
-        print("content_type" + str(content_type))
+
         if 'audio' in content_type:
             original_file_ext = '.mp3'
         elif 'video' in content_type:
-            original_file_ext = '.mp4a'
-
+            original_file_ext = '.mp4'
 
 
         original_file_name = f"{uuid4().hex[:8]}{original_file_ext}"
         original_file_path = tmpdir / original_file_name
 
-        print("original_file_path" + str(original_file_path))
+
         with open(original_file_path, "wb") as fd:
             fd.write(response.content)
 
@@ -315,6 +320,7 @@ async def youtube_download_and_save_file(file_url: str) -> Path:
             mp3_file_path = tmpdir / mp3_file_name
 
             audio.export(mp3_file_path, format="mp3")
+
 
             original_file_path.unlink()
 
