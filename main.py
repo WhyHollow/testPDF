@@ -190,11 +190,9 @@ async def convert(
                         "X-API-Key": "B6s3PV-pbYz52uK9s-0dIC9LfMU09RoCwRokiGjjPq4",
                     },
                     json={
-                        "function": "sieve/youtube_to_mp4",
+                        "function": "damn/youtube_audio_extractor",
                         "inputs": {
-                            "url": payload,
-                            "resolution": "lowest-available",
-                            "include_audio": True
+                            "url": payload
                         }
                     }
                 )
@@ -263,13 +261,13 @@ async def wait_for_job_completion(client, job_id):
         if job_status_response.status_code != 200:
             raise HTTPException(status_code=job_status_response.status_code, detail="Failed to fetch sieve job status")
         job_data = job_status_response.json()
-
+        print("job_data" + job_data)
         if job_data.get('status') == 'finished':
             outputs = job_data.get('outputs', [])
+            print("outputs" +  outputs)
             if outputs:
-                # Get the URL from the first output item
                 file_output = outputs[0].get('data', {})
-                url = file_output.get('url')
+                url = file_output.get('audio_url')
 
                 if url:
                     return url
