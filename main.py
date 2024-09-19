@@ -202,7 +202,7 @@ async def convert(
 
                 job_id = response.json().get('id')
                 video_url = await wait_for_job_completion(client, job_id)
-                print(video_url)
+
             if not video_url:
                 raise HTTPException(status_code=500, detail="Failed to retrieve the video URL from Sieve")
             temp_file_path = await youtube_download_and_save_file(video_url)
@@ -251,7 +251,7 @@ async def reset(user_id: str = Depends(verify_token_and_get_user_id)):
     return {"message": "Session reset"}
 
 async def wait_for_job_completion(client, job_id):
-    for _ in range(60):
+    for _ in range(30):
         job_status_response = await client.get(
             f"https://mango.sievedata.com/v2/jobs/{job_id}",
             headers={
@@ -268,7 +268,6 @@ async def wait_for_job_completion(client, job_id):
 
         if job_data.get('status') == 'finished':
             outputs = job_data.get('outputs', [])
-
             if outputs:
 
                 file_output_str = outputs[0].get('data', '{}')
@@ -276,9 +275,8 @@ async def wait_for_job_completion(client, job_id):
                     file_output = json.loads(file_output_str)
                 except json.JSONDecodeError:
                     print("Не удалось преобразовать строку в JSON")
-                print("file_output: " + str(file_output))
                 url = file_output.get('audio_url')
-                print("url: " + str(url))
+
                 if url:
                     return url
 
@@ -291,21 +289,21 @@ async def youtube_download_and_save_file(file_url: str) -> Path:
     async with httpx.AsyncClient(follow_redirects=True) as client:
         response = await client.get(file_url)
         response.raise_for_status()
-
+        print(str(response))
         content_type = response.headers.get('Content-Type', '')
         original_file_ext = '.dat'
-
+        print("content_type" + str(content_type))
         if 'audio' in content_type:
             original_file_ext = '.mp3'
         elif 'video' in content_type:
-            original_file_ext = '.mp4'
+            original_file_ext = '.mp4a'
 
 
 
         original_file_name = f"{uuid4().hex[:8]}{original_file_ext}"
         original_file_path = tmpdir / original_file_name
 
-
+        print("original_file_path" + str(original_file_path))
         with open(original_file_path, "wb") as fd:
             fd.write(response.content)
 
