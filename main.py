@@ -202,7 +202,7 @@ async def convert(
 
                 job_id = response.json().get('id')
                 video_url = await wait_for_job_completion(client, job_id)
-
+                print(video_url)
             if not video_url:
                 raise HTTPException(status_code=500, detail="Failed to retrieve the video URL from Sieve")
             temp_file_path = await youtube_download_and_save_file(video_url)
@@ -290,7 +290,7 @@ async def youtube_download_and_save_file(file_url: str) -> Path:
     tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
     tmpdir.mkdir(parents=True, exist_ok=True)
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(follow_redirects=True) as client:
         response = await client.get(file_url)
         response.raise_for_status()
 
