@@ -261,10 +261,10 @@ async def wait_for_job_completion(client, job_id):
         if job_status_response.status_code != 200:
             raise HTTPException(status_code=job_status_response.status_code, detail="Failed to fetch sieve job status")
         job_data = job_status_response.json()
-        print("job_data" + job_data)
+        print("job_data" + str(job_data))
         if job_data.get('status') == 'finished':
             outputs = job_data.get('outputs', [])
-            print("outputs" +  outputs)
+            print("outputs" +  str(outputs))
             if outputs:
                 file_output = outputs[0].get('data', {})
                 url = file_output.get('audio_url')
