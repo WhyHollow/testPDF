@@ -205,6 +205,7 @@ async def convert(
 
             if not video_url:
                 raise HTTPException(status_code=500, detail="Failed to retrieve the video URL from Sieve")
+            print("video_url" + video_url)
             temp_file_path = await youtube_download_and_save_file(video_url)
 
             request = ConversionRequest(payload=f"file://{temp_file_path}", lang=lang, price=price, token=token)
