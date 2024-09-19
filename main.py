@@ -263,12 +263,11 @@ async def wait_for_job_completion(client, job_id):
             raise HTTPException(status_code=job_status_response.status_code, detail="Не удалось получить статус задачи")
 
         job_data = job_status_response.json()
-        print("job_data: " + str(job_data))
+
 
 
         if job_data.get('status') == 'finished':
             outputs = job_data.get('outputs', [])
-
 
             if outputs:
 
@@ -277,10 +276,9 @@ async def wait_for_job_completion(client, job_id):
                     file_output = json.loads(file_output_str)
                 except json.JSONDecodeError:
                     print("Не удалось преобразовать строку в JSON")
-
-
+                print("file_output: " + str(file_output))
                 url = file_output.get('audio_url')
-
+                print("url: " + str(url))
                 if url:
                     return url
 
