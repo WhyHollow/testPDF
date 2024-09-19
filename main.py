@@ -276,7 +276,7 @@ async def wait_for_job_completion(client, job_id):
                 try:
                     file_output = json.loads(file_output_str)
                 except json.JSONDecodeError:
-                    raise ValueError("Не удалось преобразовать строку в JSON")
+                    print("Не удалось преобразовать строку в JSON")
 
 
                 url = file_output.get('audio_url')
