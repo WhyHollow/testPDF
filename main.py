@@ -287,7 +287,7 @@ async def youtube_download_and_save_file(file_url: str) -> Path:
     tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
     tmpdir.mkdir(parents=True, exist_ok=True)
 
-    async with httpx.AsyncClient(headers={'User-Agent': 'Mozilla/5.0'}, follow_redirects=False) as client:
+    async with httpx.AsyncClient(headers={'User-Agent': 'Mozilla/5.0'}, timeout=httpx.Timeout(300.0), follow_redirects=False) as client:
         response = await client.get(file_url)
 
         if response.status_code == 302:
