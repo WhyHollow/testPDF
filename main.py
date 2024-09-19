@@ -258,22 +258,33 @@ async def wait_for_job_completion(client, job_id):
                 "X-API-Key": "B6s3PV-pbYz52uK9s-0dIC9LfMU09RoCwRokiGjjPq4",
             }
         )
+
         if job_status_response.status_code != 200:
-            raise HTTPException(status_code=job_status_response.status_code, detail="Failed to fetch sieve job status")
+            raise HTTPException(status_code=job_status_response.status_code, detail="Не удалось получить статус задачи")
+
         job_data = job_status_response.json()
-        print("job_data" + str(job_data))
+        print("job_data: " + str(job_data))
+
+
         if job_data.get('status') == 'finished':
             outputs = job_data.get('outputs', [])
-            print("outputs" +  str(outputs))
+
+
             if outputs:
-                file_output = outputs[0].get('data', {})
+
+                file_output_str = outputs[0].get('data', '{}')
+                try:
+                    file_output = json.loads(file_output_str)
+                except json.JSONDecodeError:
+                    raise ValueError("Не удалось преобразовать строку в JSON")
+
+
                 url = file_output.get('audio_url')
 
                 if url:
                     return url
-        await asyncio.sleep(5)
 
-    raise HTTPException(status_code=500, detail="Job did not complete in time")
+        await asyncio.sleep(5)
 
 async def youtube_download_and_save_file(file_url: str) -> Path:
     tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
