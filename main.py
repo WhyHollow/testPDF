@@ -44,6 +44,10 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from pydub import AudioSegment
 
+import logfire
+
+logfire.configure()
+
 import platogram as plato
 
 SCOPES = [
@@ -86,15 +90,12 @@ class Task(BaseModel):
     status: Literal["running", "done", "failed"] = "running"
     error: Optional[str] = None
 
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-
-# Cache for the Auth0 public key
 auth0_public_key_cache = {
     "key": None,
     "last_updated": 0,
-    "expires_in": 3600,  # Cache expiration time in seconds (1 hour)
+    "expires_in": 3600,
 }
 
 
@@ -149,16 +150,11 @@ async def verify_token_and_get_user_id(token: str = Depends(oauth2_scheme)):
         email = payload.get("platogram:user_email") or payload.get("email")
         if not email:
             raise HTTPException(status_code=401, detail="Email not found in token")
+
+        logfire.info(f"Token verification successful for user: {email}", extra={"email": email, "timestamp": datetime.now().isoformat()})
         return email
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.InvalidAudienceError:
-        raise HTTPException(status_code=401, detail="Invalid audience")
-    except jwt.InvalidIssuerError:
-        raise HTTPException(status_code=401, detail="Invalid issuer")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
+        logfire.error(f"Token verification failed: {str(e)}", extra={"timestamp": datetime.now().isoformat()})
         raise HTTPException(status_code=401, detail="Couldn't verify token")
 
 @app.post("/convert")
@@ -171,13 +167,17 @@ async def convert(
     price: Optional[float] = Form(None),
     token: Optional[str] = Form(None),
 ):
+    logfire.info(f"Conversion request started for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
+
     if lang is None:
         lang = "en"
 
     if user_id in tasks and tasks[user_id].status == "running":
+        logfire.warning(f"Conversion already in progress for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
         raise HTTPException(status_code=400, detail="Conversion already in progress")
 
     if payload is None and file is None:
+        logfire.error(f"Invalid request: neither payload nor file provided for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
         raise HTTPException(status_code=400, detail="Either payload or file must be provided")
 
     if payload is not None:
@@ -198,12 +198,14 @@ async def convert(
                 )
 
                 if response.status_code != 200:
+                    logfire.error(f"Failed to download video from YouTube for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
                     raise HTTPException(status_code=response.status_code, detail="Failed to download video from YouTube")
 
                 job_id = response.json().get('id')
                 video_url = await wait_for_job_completion(client, job_id)
 
             if not video_url:
+                logfire.error(f"Failed to retrieve the video URL for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
                 raise HTTPException(status_code=500, detail="Failed to retrieve the video URL from Sieve")
 
             temp_file_path = await youtube_download_and_save_file(video_url)
@@ -223,7 +225,12 @@ async def convert(
         request = ConversionRequest(payload=f"file://{temp_file}", lang=lang)
 
     tasks[user_id] = Task(start_time=datetime.now(), request=request, price=price, token=token)
+
+    logfire.info(f"Background task added for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
+
     background_tasks.add_task(convert_and_send_with_error_handling, request, user_id)
+
+    logfire.info(f"Conversion started successfully for user: {user_id}", extra={"user_id": user_id, "email": user_id, "timestamp": datetime.now().isoformat()})
 
     return {"message": "Conversion started"}
 
@@ -336,16 +343,17 @@ def is_youtube_url(url: str) -> bool:
     )
     return re.match(youtube_regex, url) is not None
 
-
 async def audio_to_paper(
     url: str, lang: Language, output_dir: Path, user_id: str
 ) -> tuple[str, str]:
-    # Get absolute path of current working directory
     script_path = Path().resolve() / "audio_to_paper.sh"
     command = f'cd {output_dir} && {script_path} "{url}" --lang {lang} --verbose'
 
     if user_id in processes:
+        logfire.error(f"Conversion already in progress for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
         raise RuntimeError("Conversion already in progress.")
+
+    logfire.info(f"Starting audio to paper conversion for user: {user_id} with URL: {url}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
 
     process = await asyncio.create_subprocess_shell(
         command,
@@ -357,11 +365,13 @@ async def audio_to_paper(
 
     try:
         stdout, stderr = await process.communicate()
+        logfire.info(f"Completed conversion for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
     finally:
         if user_id in processes:
             del processes[user_id]
 
     if process.returncode != 0:
+        logfire.error(f"Conversion failed for user: {user_id} with return code: {process.returncode}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
         raise RuntimeError(f"""Failed to execute {command} with return code {process.returncode}.
 
 stdout:
@@ -369,7 +379,9 @@ stdout:
 
 stderr:
 {stderr.decode()}""")
+
     return stdout.decode(), stderr.decode()
+
 
 async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
     url = "https://api.resend.com/emails"
@@ -386,6 +398,7 @@ async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
         "attachments": []
     }
 
+    logfire.info(f"Preparing to send email to user: {user_id} with subject: {subj}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
 
     for attachment in files:
         async with aiofiles.open(attachment, "rb") as file:
@@ -395,24 +408,36 @@ async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
                 "filename": attachment.name,
                 "content": encoded_content
             })
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, headers=headers, json=payload) as response:
-            if response.status != 200:
-                raise Exception(f"Failed to send email. Status: {response.status}, Response: {await response.text()}")
-            return await response.text()
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=payload) as response:
+                if response.status != 200:
+                    logfire.error(f"Failed to send email to user: {user_id}. Status: {response.status}, Response: {await response.text()}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
+                    raise Exception(f"Failed to send email. Status: {response.status}, Response: {await response.text()}")
+
+                logfire.info(f"Email sent successfully to user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
+                return await response.text()
+    except Exception as e:
+        logfire.error(f"Error occurred while sending email to user: {user_id}: {str(e)}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
+        raise
+
 
 async def convert_and_send_with_error_handling(
     request: ConversionRequest, user_id: str
 ):
     try:
+        logfire.info(f"Starting conversion for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
         await convert_and_send(request, user_id)
         tasks[user_id].status = "done"
-        print(f"No charge for user {user_id}")
+        logfire.info(f"Conversion completed successfully for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
+
     except Exception as e:
-        print(f"Error in background task for user {user_id}: {str(e)}")
+        logfire.error(f"Error occurred during conversion for user: {user_id}: {str(e)}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
         error = str(e)
+
         model = plato.llm.get_model("anthropic/claude-3-5-sonnet", key=os.getenv("ANTHROPIC_API_KEY"))
-        error = model.prompt_model(messages=[
+        error_message = model.prompt_model(messages=[
             plato.types.User(
                 content=f"""
                 Given the following error message, provide a concise, user-friendly explanation
@@ -423,25 +448,30 @@ async def convert_and_send_with_error_handling(
                 """
             )
         ])
-        error = error.strip()
-        tasks[user_id].error = error
+        error_message = error_message.strip()
+
+        tasks[user_id].error = error_message
         tasks[user_id].status = "failed"
 
-async def convert_and_send(request: ConversionRequest, user_id: str):
-    with tempfile.TemporaryDirectory() as tmpdir:
+        logfire.error(f"Conversion failed for user: {user_id} with error: {error_message}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
 
+
+async def convert_and_send(request: ConversionRequest, user_id: str):
+    logfire.info(f"Starting conversion process for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
+
+    with tempfile.TemporaryDirectory() as tmpdir:
         if not (
             request.payload.startswith("http")
             or request.payload.startswith("file:///tmp/platogram_uploads")
         ):
+            logfire.error(f"Invalid payload URL for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
             raise HTTPException(status_code=400, detail="Please provide a valid URL.")
         else:
             url = request.payload
 
         try:
-
-           stdout, stderr = await audio_to_paper(url, request.lang, Path(tmpdir), user_id)
-
+            logfire.info(f"Processing audio to paper for user: {user_id} with URL: {url}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
+            stdout, stderr = await audio_to_paper(url, request.lang, Path(tmpdir), user_id)
         finally:
             if request.payload.startswith("file:///tmp/platogram_uploads"):
                 try:
@@ -450,10 +480,9 @@ async def convert_and_send(request: ConversionRequest, user_id: str):
                             "file:///tmp/platogram_uploads", "/tmp/platogram_uploads"
                         )
                     )
+                    logfire.info(f"Temporary file deleted for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
                 except OSError as e:
-                    print(
-                        f"Failed to delete temporary file {request.payload}: {e}"
-                    )
+                    logfire.error(f"Failed to delete temporary file for user: {user_id}: {e}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
 
         title_match = re.search(r"<title>(.*?)</title>", stdout, re.DOTALL)
         if title_match:
@@ -461,13 +490,11 @@ async def convert_and_send(request: ConversionRequest, user_id: str):
         else:
             title = "👋"
 
-
         abstract_match = re.search(r"<abstract>(.*?)</abstract>", stdout, re.DOTALL)
         if abstract_match:
             abstract = abstract_match.group(1).strip()
         else:
             abstract = ""
-
 
         files = [f for f in Path(tmpdir).glob("*") if f.is_file()]
 
@@ -490,37 +517,15 @@ We welcome your feedback, suggestions, or questions. Please reply to this email 
 Cya,
 Artyom & Ivan"""
 
-        # Отправка email
-        await send_email(user_id, subject, body, files)
+        logfire.info(f"Sending email to user: {user_id} with subject: {subject}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
 
+        try:
+            await send_email(user_id, subject, body, files)
+            logfire.info(f"Email sent successfully to user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
+        except Exception as e:
+            logfire.error(f"Failed to send email to user: {user_id}: {str(e)}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
+            raise
 
-async def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]):
-    url = "https://api.resend.com/emails"
-    headers = {
-        "Authorization": f"Bearer { os.getenv('RESEND_API_KEY')}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "from": "Platogram <onboarding@resend.dev>",
-        "to": user_id,
-        "subject": subj,
-        "text": body,
-        "attachments": []
-    }
-
-    # Attach files if provided
-    for attachment in files:
-        async with aiofiles.open(attachment, "rb") as file:
-            content = await file.read()
-            encoded_content = base64.b64encode(content).decode('utf-8')
-            payload["attachments"].append({
-                "filename": attachment.name,
-                "content": encoded_content
-            })
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, headers=headers, json=payload) as response:
-            return response
 
 # async def check_and_add_user(user_id: str):
 #     api_key = os.getenv('RESEND_API_KEY')
@@ -561,37 +566,6 @@ async def _send_email_sync(user_id: str, subj: str, body: str, files: list[Path]
 #         else:
 #             print(f"User {user_id} already exists in the contact list.")
 #             return {"status": "exists", "message": f"User {user_id} already exists in the contact list."}
-
-def send_with_retry(service, message_body, max_retries=5, initial_delay=1):
-    for attempt in range(max_retries):
-        try:
-            return service.users().messages().send(userId="me", body=message_body).execute()
-        except HttpError as error:
-            if error.resp.status in [500, 503]:  # Internal Server Error or Service Unavailable
-                delay = initial_delay * (2 ** attempt)
-                time.sleep(delay)
-            else:
-                raise error
-
-def delete_with_retry(service, message_id, max_retries=5, initial_delay=1):
-    for attempt in range(max_retries):
-        try:
-            service.users().messages().delete(userId="me", id=message_id).execute()
-            return
-        except HttpError as error:
-            if error.resp.status in [500, 503]:  # Internal Server Error or Service Unavailable
-                delay = initial_delay * (2 ** attempt)
-                time.sleep(delay)
-            else:
-                raise error
-
-def get_gmail_service():
-    credentials = service_account.Credentials.from_service_account_file(
-        ".id/google-service-account.json", scopes=SCOPES)
-    user_email = os.getenv("PLATOGRAM_USER_EMAIL")
-    delegated_credentials = credentials.with_subject(user_email)
-
-    return delegated_credentials
 
 if __name__ == "__main__":
     import uvicorn
