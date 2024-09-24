@@ -145,15 +145,10 @@ EOF
 )
 
 
-RESPONSE=$(curl -s -X POST https://pdf.shrinked.ai/api/create-page \
+curl -s -X POST https://pdf.shrinked.ai/api/create-page \
   -H "Content-Type: application/json" \
-  -d "$JSON_PAYLOAD")
+  -d "$JSON_PAYLOAD" &
 
-if [ $? -eq 0 ]; then
-    echo "Page created successfully"
-else
-    echo "Failed to create page"
-fi
 # With References
 (
     echo $'# '"$TITLE"$'\n'
