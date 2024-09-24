@@ -82,7 +82,7 @@ class ConversionRequest(BaseModel):
     lang: Language = "en"
     price: Optional[float] = None
     token: Optional[str] = None
-
+    save: Optional[bool] = False
 
 class Task(BaseModel):
     start_time: datetime
@@ -166,6 +166,7 @@ async def convert(
     lang: Optional[str] = Form(None),
     price: Optional[float] = Form(None),
     token: Optional[str] = Form(None),
+    save: Optional[bool] = Form(False)
 ):
     logfire.info(f"Conversion request started for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
 
@@ -210,9 +211,9 @@ async def convert(
 
             temp_file_path = await youtube_download_and_save_file(video_url)
 
-            request = ConversionRequest(payload=f"file://{temp_file_path}", lang=lang, price=price, token=token)
+            request = ConversionRequest(payload=f"file://{temp_file_path}", lang=lang, price=price, token=token, save=save)
         else:
-            request = ConversionRequest(payload=payload, lang=lang, price=price, token=token)
+            request = ConversionRequest(payload=payload, lang=lang, price=price, token=token, save=save)
     else:
         tmpdir = Path(tempfile.gettempdir()) / "platogram_uploads"
         tmpdir.mkdir(parents=True, exist_ok=True)
@@ -222,7 +223,7 @@ async def convert(
         with open(temp_file, "wb") as fd:
             fd.write(file_content)
 
-        request = ConversionRequest(payload=f"file://{temp_file}", lang=lang)
+        request = ConversionRequest(payload=f"file://{temp_file}", lang=lang, save=save)
 
     tasks[user_id] = Task(start_time=datetime.now(), request=request, price=price, token=token)
 
@@ -344,10 +345,13 @@ def is_youtube_url(url: str) -> bool:
     return re.match(youtube_regex, url) is not None
 
 async def audio_to_paper(
-    url: str, lang: Language, output_dir: Path, user_id: str
+    url: str, lang: Language, output_dir: Path, user_id: str, save: bool
 ) -> tuple[str, str]:
     script_path = Path().resolve() / "audio_to_paper.sh"
     command = f'cd {output_dir} && {script_path} "{url}" --lang {lang} --verbose'
+
+    if save:
+        command += " --save"
 
     if user_id in processes:
         logfire.error(f"Conversion already in progress for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
@@ -471,7 +475,7 @@ async def convert_and_send(request: ConversionRequest, user_id: str):
 
         try:
             logfire.info(f"Processing audio to paper for user: {user_id} with URL: {url}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
-            stdout, stderr = await audio_to_paper(url, request.lang, Path(tmpdir), user_id)
+            stdout, stderr = await audio_to_paper(url, request.lang, Path(tmpdir), user_id, request.save)
         finally:
             if request.payload.startswith("file:///tmp/platogram_uploads"):
                 try:

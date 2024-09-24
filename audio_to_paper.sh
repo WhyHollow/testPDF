@@ -6,6 +6,7 @@ URL="$1"
 LANG="en"
 VERBOSE="false"
 IMAGES="false"
+SAVE="false"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -20,6 +21,10 @@ while [[ $# -gt 0 ]]; do
         ;;
     --images)
         IMAGES="true"
+        shift
+        ;;
+    --save)
+        SAVE="true"
         shift
         ;;
     *)
@@ -135,19 +140,22 @@ echo "Generating Documents..."
         >(pandoc -o "$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')-no-refs.pdf" --from markdown --pdf-engine=xelatex) >/dev/null
 
 
-PAGE_TITLE=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')
-JSON_PAYLOAD=$(cat <<EOF
+if [ "$SAVE" = "true" ]; then
+    echo "Saving PDF metadata via API..."
+
+    PAGE_TITLE=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')
+    JSON_PAYLOAD=$(cat <<EOF
 {
   "slug": "$PAGE_TITLE",
   "content": "---\ntitle: \"$TITLE\"\n---\n\n# $TITLE\n\n## Origin\n\n$URL\n\n## Abstract\n\n$ABSTRACT\n\n$CONTRIBUTORS\n\n## Chapters\n\n$CHAPTERS\n\n## Introduction\n\n$INTRODUCTION\n\n## Discussion\n\n$PASSAGES\n\n## Conclusion\n\n$CONCLUSION\n\n## References\n\n$REFERENCES"
 }
 EOF
-)
+    )
 
-
-curl -s -X POST https://pdf.shrinked.ai/api/create-page \
-  -H "Content-Type: application/json" \
-  -d "$JSON_PAYLOAD" &
+    curl -s -X POST https://pdf.shrinked.ai/api/create-page \
+      -H "Content-Type: application/json" \
+      -d "$JSON_PAYLOAD" &
+fi
 
 # With References
 (
