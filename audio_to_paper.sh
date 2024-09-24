@@ -147,7 +147,7 @@ if [ "$SAVE" = "true" ]; then
     JSON_PAYLOAD=$(cat <<EOF
 {
   "slug": "$PAGE_TITLE",
-  "content": "---\ntitle: \"$TITLE\"\n---\n\n# $TITLE\n\n## Origin\n\n$URL\n\n## Abstract\n\n$ABSTRACT\n\n$CONTRIBUTORS\n\n## Chapters\n\n$CHAPTERS\n\n## Introduction\n\n$INTRODUCTION\n\n## Discussion\n\n$PASSAGES\n\n## Conclusion\n\n$CONCLUSION\n\n## References\n\n$REFERENCES"
+  "content": "\n## Origin\n\n$URL\n\n## Abstract\n\n$ABSTRACT\n\n$CONTRIBUTORS\n\n## Chapters\n\n$CHAPTERS\n\n## Introduction\n\n$INTRODUCTION\n\n## Discussion\n\n$PASSAGES\n\n## Conclusion\n\n$CONCLUSION\n\n## References\n\n$REFERENCES"
 }
 EOF
     )
