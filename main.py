@@ -357,7 +357,7 @@ async def audio_to_paper(
         logfire.error(f"Conversion already in progress for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
         raise RuntimeError("Conversion already in progress.")
 
-    logfire.info(f"Starting audio to paper conversion for user: {user_id} with URL: {url}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
+    logfire.info(f"Starting audio to paper conversion for user: {user_id} with URL: {url}", extra={"user_id": user_id,"save": save, "timestamp": datetime.now().isoformat()})
 
     process = await asyncio.create_subprocess_shell(
         command,
@@ -369,7 +369,7 @@ async def audio_to_paper(
 
     try:
         stdout, stderr = await process.communicate()
-        logfire.info(f"Completed conversion for user: {user_id}", extra={"user_id": user_id, "timestamp": datetime.now().isoformat()})
+        logfire.info(f"Completed conversion for user: {user_id}", extra={"user_id": user_id, "save": save, "timestamp": datetime.now().isoformat()})
     finally:
         if user_id in processes:
             del processes[user_id]
