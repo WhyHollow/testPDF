@@ -144,6 +144,8 @@ if [ "$SAVE" = "true" ]; then
     echo "Saving PDF metadata via API..."
 
     PAGE_TITLE=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')
+
+
     JSON_PAYLOAD=$(cat <<EOF
 {
   "slug": "$PAGE_TITLE",
@@ -152,10 +154,31 @@ if [ "$SAVE" = "true" ]; then
 EOF
     )
 
-    curl -s -X POST https://pdf.shrinked.ai/api/create-page \
+
+    response=$(curl -s -w "%{http_code}" -o /dev/null -X POST https://pdf.shrinked.ai/api/create-page \
       -H "Content-Type: application/json" \
-      -d "$JSON_PAYLOAD" &
+      -d "$JSON_PAYLOAD")
+
+
+    if [ "$response" -ne 200 ]; then
+        ERROR_REASON="Error: Request failed with HTTP code $response"
+
+
+        ERROR_JSON=$(cat <<EOF
+{
+  "error": "$ERROR_REASON",
+  "slug": "$PAGE_TITLE"
+}
+EOF
+        )
+
+
+        curl -s -X POST https://pdf.shrinked.ai/api/create-page \
+          -H "Content-Type: application/json" \
+          -d "$ERROR_JSON"
+    fi
 fi
+
 
 # With References
 (
