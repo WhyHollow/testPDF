@@ -170,8 +170,7 @@ if [ "$SAVE" = "true" ]; then
         introduction="${INTRODUCTION:-No introduction available}" \
         discussion="${PASSAGES:-No discussion available}" \
         conclusion="${CONCLUSION:-No conclusion available}" \
-        references="${REFERENCES:-No references available}" \
-        file_data=%"$FILE_PATH")
+        references="${REFERENCES:-No references available}" )
 
 
     response=$(jo slug="$PAGE_TITLE" content="$CONTENT" | curl -s -w "%{http_code}" -o /dev/null -X POST -H 'Content-Type: application/json' -d @- https://pdf.shrinked.ai/api/create-page)
