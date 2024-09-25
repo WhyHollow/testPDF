@@ -140,39 +140,6 @@ echo "Generating Documents..."
         >(pandoc -o "$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')-no-refs.pdf" --from markdown --pdf-engine=xelatex) >/dev/null
 
 
-if [ "$SAVE" = "true" ]; then
-    echo "Saving PDF metadata via API..."
-
-    # Генерация заголовка страницы с удалением специальных символов
-    PAGE_TITLE=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')
-
-    # Использование jo для создания JSON с Base64-кодированным файлом
-    jo slug="$PAGE_TITLE" content="$(jo \
-        origin="$URL" \
-        abstract="$ABSTRACT" \
-        contributors="$CONTRIBUTORS" \
-        chapters="$CHAPTERS" \
-        introduction="$INTRODUCTION" \
-        discussion="$PASSAGES" \
-        conclusion="$CONCLUSION" \
-        references="$REFERENCES" \
-        file_data=%"$FILE_PATH")" | curl -X POST -H 'Content-Type: application/json' -d @- https://pdf.shrinked.ai/api/create-page
-
-    # Проверка кода ответа от curl
-    response=$(curl -s -w "%{http_code}" -o /dev/null -X POST https://pdf.shrinked.ai/api/create-page \
-      -H "Content-Type: application/json" \
-      -d "$JSON_PAYLOAD")
-
-    if [ "$response" -ne 200 ]; then
-        ERROR_REASON="Error: Request failed with HTTP code $response"
-
-        ERROR_JSON=$(jo error="$ERROR_REASON" slug="$PAGE_TITLE")
-
-        curl -s -X POST https://pdf.shrinked.ai/api/create-page \
-          -H "Content-Type: application/json" \
-          -d "$ERROR_JSON"
-    fi
-fi
 
 
 # With References
@@ -189,6 +156,37 @@ fi
 ) |
     tee \
         >(pandoc -o "$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')-refs.pdf" --from markdown+header_attributes --pdf-engine=xelatex) >/dev/null
+
+if [ "$SAVE" = "true" ]; then
+    echo "Saving PDF metadata via API..."
+
+    PAGE_TITLE=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')
+
+    CONTENT=$(jo \
+        origin="${URL:-N/A}" \
+        abstract="${ABSTRACT:-No abstract available}" \
+        contributors="${CONTRIBUTORS:-No contributors listed}" \
+        chapters="${CHAPTERS:-No chapters available}" \
+        introduction="${INTRODUCTION:-No introduction available}" \
+        discussion="${PASSAGES:-No discussion available}" \
+        conclusion="${CONCLUSION:-No conclusion available}" \
+        references="${REFERENCES:-No references available}" \
+        file_data=%"$FILE_PATH")
+
+
+    response=$(jo slug="$PAGE_TITLE" content="$CONTENT" | curl -s -w "%{http_code}" -o /dev/null -X POST -H 'Content-Type: application/json' -d @- https://pdf.shrinked.ai/api/create-page)
+
+    # Обработка ошибок
+    if [ "$response" -ne 200 ]; then
+        ERROR_REASON="Error: Request failed with HTTP code $response"
+
+        ERROR_JSON=$(jo error="$ERROR_REASON" slug="$PAGE_TITLE")
+
+        curl -s -X POST https://pdf.shrinked.ai/api/create-page \
+          -H "Content-Type: application/json" \
+          -d "$ERROR_JSON"
+    fi
+fi
 
 
 # Check if images are requested
