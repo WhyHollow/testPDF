@@ -145,7 +145,6 @@ if [ "$SAVE" = "true" ]; then
 
     PAGE_TITLE=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')
 
-
     JSON_PAYLOAD=$(cat <<EOF
 {
   "slug": "$PAGE_TITLE",
@@ -155,15 +154,20 @@ EOF
     )
 
 
+    TMP_JSON_FILE=$(mktemp)
+    echo "$JSON_PAYLOAD" > "$TMP_JSON_FILE"
+
+
     response=$(curl -s -w "%{http_code}" -o /dev/null -X POST https://pdf.shrinked.ai/api/create-page \
       -H "Content-Type: application/json" \
-      -d "$JSON_PAYLOAD")
+      --data-binary @"$TMP_JSON_FILE")
+
+
+    rm -f "$TMP_JSON_FILE"
 
 
     if [ "$response" -ne 200 ]; then
         ERROR_REASON="Error: Request failed with HTTP code $response"
-
-
         ERROR_JSON=$(cat <<EOF
 {
   "error": "$ERROR_REASON",
@@ -172,12 +176,12 @@ EOF
 EOF
         )
 
-
         curl -s -X POST https://pdf.shrinked.ai/api/create-page \
           -H "Content-Type: application/json" \
-          -d "$ERROR_JSON"
+          --data-binary @"$ERROR_JSON"
     fi
 fi
+
 
 
 # With References
