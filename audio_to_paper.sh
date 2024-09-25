@@ -143,45 +143,36 @@ echo "Generating Documents..."
 if [ "$SAVE" = "true" ]; then
     echo "Saving PDF metadata via API..."
 
+    # Генерация заголовка страницы с удалением специальных символов
     PAGE_TITLE=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')
 
-    JSON_PAYLOAD=$(cat <<EOF
-{
-  "slug": "$PAGE_TITLE",
-  "content": "\n## Origin\n\n$URL\n\n## Abstract\n\n$ABSTRACT\n\n$CONTRIBUTORS\n\n## Chapters\n\n$CHAPTERS\n\n## Introduction\n\n$INTRODUCTION\n\n## Discussion\n\n$PASSAGES\n\n## Conclusion\n\n$CONCLUSION\n\n## References\n\n$REFERENCES"
-}
-EOF
-    )
+    # Использование jo для создания JSON с Base64-кодированным файлом
+    jo slug="$PAGE_TITLE" content="$(jo \
+        origin="$URL" \
+        abstract="$ABSTRACT" \
+        contributors="$CONTRIBUTORS" \
+        chapters="$CHAPTERS" \
+        introduction="$INTRODUCTION" \
+        discussion="$PASSAGES" \
+        conclusion="$CONCLUSION" \
+        references="$REFERENCES" \
+        file_data=%"$FILE_PATH")" | curl -X POST -H 'Content-Type: application/json' -d @- https://pdf.shrinked.ai/api/create-page
 
-
-    TMP_JSON_FILE=$(mktemp)
-    echo "$JSON_PAYLOAD" > "$TMP_JSON_FILE"
-
-
+    # Проверка кода ответа от curl
     response=$(curl -s -w "%{http_code}" -o /dev/null -X POST https://pdf.shrinked.ai/api/create-page \
       -H "Content-Type: application/json" \
-      --data-binary @"$TMP_JSON_FILE")
-
-
-    rm -f "$TMP_JSON_FILE"
-
+      -d "$JSON_PAYLOAD")
 
     if [ "$response" -ne 200 ]; then
         ERROR_REASON="Error: Request failed with HTTP code $response"
-        ERROR_JSON=$(cat <<EOF
-{
-  "error": "$ERROR_REASON",
-  "slug": "$PAGE_TITLE"
-}
-EOF
-        )
+
+        ERROR_JSON=$(jo error="$ERROR_REASON" slug="$PAGE_TITLE")
 
         curl -s -X POST https://pdf.shrinked.ai/api/create-page \
           -H "Content-Type: application/json" \
-          --data-binary @"$ERROR_JSON"
+          -d "$ERROR_JSON"
     fi
 fi
-
 
 
 # With References
