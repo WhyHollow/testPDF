@@ -158,11 +158,9 @@ echo "Generating Documents..."
         >(pandoc -o "$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')-refs.pdf" --from markdown+header_attributes --pdf-engine=xelatex) >/dev/null
 
 if [ "$SAVE" = "true" ]; then
-    echo "Saving PDF metadata via API..."
 
     PAGE_TITLE=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')
 
-    # Подготовка данных и сохранение в файл
     CONTENT=$(jo \
         origin="${URL:-N/A}" \
         abstract="${ABSTRACT:-No abstract available}" \
@@ -175,21 +173,19 @@ if [ "$SAVE" = "true" ]; then
 
     echo "$CONTENT" > /tmp/content.json
 
-    # Отправка данных через form-data с файлом
     response=$(curl -s -w "%{http_code}" -o /dev/null -X POST \
         -F "slug=$PAGE_TITLE" \
         -F "content=@/tmp/content.json" \
         https://pdf.shrinked.ai/api/create-page)
 
-    # Обработка ошибок
-    if [ "$response" -ne 200 ]; then
+
+    if [ "$response" -lt 200 ] || [ "$response" -ge 300 ]; then
         ERROR_REASON="Error: Request failed with HTTP code $response"
         curl -s -X POST https://pdf.shrinked.ai/api/create-page \
             -F "error=$ERROR_REASON" \
             -F "slug=$PAGE_TITLE"
     fi
 
-    # Удаление временного файла
     rm /tmp/content.json
 fi
 
