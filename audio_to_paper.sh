@@ -162,6 +162,7 @@ if [ "$SAVE" = "true" ]; then
 
     PAGE_TITLE=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')
 
+    # Подготовка данных и сохранение в файл
     CONTENT=$(jo \
         origin="${URL:-N/A}" \
         abstract="${ABSTRACT:-No abstract available}" \
@@ -170,22 +171,28 @@ if [ "$SAVE" = "true" ]; then
         introduction="${INTRODUCTION:-No introduction available}" \
         discussion="${PASSAGES:-No discussion available}" \
         conclusion="${CONCLUSION:-No conclusion available}" \
-        references="${REFERENCES:-No references available}" )
+        references="${REFERENCES:-No references available}")
 
+    echo "$CONTENT" > /tmp/content.json
 
-    response=$(jo slug="$PAGE_TITLE" content="$CONTENT" | curl -s -w "%{http_code}" -o /dev/null -X POST -H 'Content-Type: application/json' -d @- https://pdf.shrinked.ai/api/create-page)
+    # Отправка данных через form-data с файлом
+    response=$(curl -s -w "%{http_code}" -o /dev/null -X POST \
+        -F "slug=$PAGE_TITLE" \
+        -F "content=@/tmp/content.json" \
+        https://pdf.shrinked.ai/api/create-page)
 
     # Обработка ошибок
     if [ "$response" -ne 200 ]; then
         ERROR_REASON="Error: Request failed with HTTP code $response"
-
-        ERROR_JSON=$(jo error="$ERROR_REASON" slug="$PAGE_TITLE")
-
         curl -s -X POST https://pdf.shrinked.ai/api/create-page \
-          -H "Content-Type: application/json" \
-          -d "$ERROR_JSON"
+            -F "error=$ERROR_REASON" \
+            -F "slug=$PAGE_TITLE"
     fi
+
+    # Удаление временного файла
+    rm /tmp/content.json
 fi
+
 
 
 # Check if images are requested
