@@ -391,12 +391,16 @@ stderr:
         json_str = json_match.group(1)
         content = json.loads(json_str)
 
-        page_title = content.get("title", "default_title").replace(" ", "_")
+        title_match = re.search(r"<title>(.*?)</title>", output, re.DOTALL)
+        if title_match:
+            title = title_match.group(1).strip()
+        else:
+            title = "👋"
         if save:
             try:
                 await send_data_to_api(
                     url="https://pdf.shrinked.ai/api/create-page",
-                    slug=page_title,
+                    slug=title,
                     content=content
                 )
             except RuntimeError as e:
