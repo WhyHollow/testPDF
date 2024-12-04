@@ -415,7 +415,7 @@ async def send_data_to_api(url: str, slug: str, content: dict):
         async with session.post(url, json=payload) as response:
             if response.status >= 200 and response.status < 300:
                 result = await response.json()
-                logfire.info("Data successfully sent:", result)
+                logfire.info("Data successfully sent")
                 return result
             else:
                 error_text = await response.text()
