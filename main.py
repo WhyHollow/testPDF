@@ -386,6 +386,7 @@ stderr:
 
     output = stdout.decode()
     if save:
+        print(output)
         content = json.loads(output)
         page_title = content.get("title", "default_title").replace(" ", "_")
         try:
