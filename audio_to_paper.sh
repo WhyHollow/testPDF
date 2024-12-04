@@ -157,37 +157,37 @@ echo "Generating Documents..."
     tee \
         >(pandoc -o "$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')-refs.pdf" --from markdown+header_attributes --pdf-engine=xelatex) >/dev/null
 
-if [ "$SAVE" = "true" ]; then
+# if [ "$SAVE" = "true" ]; then
 
-    PAGE_TITLE=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')
+#     PAGE_TITLE=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')
 
-    CONTENT=$(jo \
-        origin="${URL:-N/A}" \
-        abstract="${ABSTRACT:-No abstract available}" \
-        contributors="${CONTRIBUTORS:-No contributors listed}" \
-        chapters="${CHAPTERS:-No chapters available}" \
-        introduction="${INTRODUCTION:-No introduction available}" \
-        discussion="${PASSAGES:-No discussion available}" \
-        conclusion="${CONCLUSION:-No conclusion available}" \
-        references="${REFERENCES:-No references available}")
+#     CONTENT=$(jo \
+#         origin="${URL:-N/A}" \
+#         abstract="${ABSTRACT:-No abstract available}" \
+#         contributors="${CONTRIBUTORS:-No contributors listed}" \
+#         chapters="${CHAPTERS:-No chapters available}" \
+#         introduction="${INTRODUCTION:-No introduction available}" \
+#         discussion="${PASSAGES:-No discussion available}" \
+#         conclusion="${CONCLUSION:-No conclusion available}" \
+#         references="${REFERENCES:-No references available}")
 
-    echo "$CONTENT" > /tmp/content.json
+#     echo "$CONTENT" > /tmp/content.json
 
-    response=$(curl -s -w "%{http_code}" -o /dev/null -X POST \
-        -F "slug=$PAGE_TITLE" \
-        -F "content=@/tmp/content.json" \
-        https://pdf.shrinked.ai/api/create-page)
+#     response=$(curl -s -w "%{http_code}" -o /dev/null -X POST \
+#         -F "slug=$PAGE_TITLE" \
+#         -F "content=@/tmp/content.json" \
+#         https://pdf.shrinked.ai/api/create-page)
 
 
-    if [ "$response" -lt 200 ] || [ "$response" -ge 300 ]; then
-        ERROR_REASON="Error: Request failed with HTTP code $response"
-        curl -s -X POST https://pdf.shrinked.ai/api/create-page \
-            -F "error=$ERROR_REASON" \
-            -F "slug=$PAGE_TITLE"
-    fi
+#     if [ "$response" -lt 200 ] || [ "$response" -ge 300 ]; then
+#         ERROR_REASON="Error: Request failed with HTTP code $response"
+#         curl -s -X POST https://pdf.shrinked.ai/api/create-page \
+#             -F "error=$ERROR_REASON" \
+#             -F "slug=$PAGE_TITLE"
+#     fi
 
-    rm /tmp/content.json
-fi
+#     rm /tmp/content.json
+# fi
 
 
 
