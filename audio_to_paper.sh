@@ -189,7 +189,25 @@ echo "Generating Documents..."
 #     rm /tmp/content.json
 # fi
 
-
+JSON_OUTPUT=$(jq -n \
+    --arg origin "${URL:-N/A}" \
+    --arg abstract "${ABSTRACT:-No abstract available}" \
+    --arg contributors "${CONTRIBUTORS:-No contributors listed}" \
+    --arg chapters "${CHAPTERS:-No chapters available}" \
+    --arg introduction "${INTRODUCTION:-No introduction available}" \
+    --arg discussion "${PASSAGES:-No discussion available}" \
+    --arg conclusion "${CONCLUSION:-No conclusion available}" \
+    --arg references "${REFERENCES:-No references available}" \
+    '{
+        origin: $origin,
+        abstract: $abstract,
+        contributors: $contributors,
+        chapters: $chapters,
+        introduction: $introduction,
+        discussion: $discussion,
+        conclusion: $conclusion,
+        references: $references
+    }')
 
 # Check if images are requested
 if [ "$IMAGES" = true ]; then
@@ -228,4 +246,9 @@ if [ "$VERBOSE" = true ]; then
     echo "<abstract>"
     echo "$ABSTRACT"
     echo "</abstract>"
+fi
+
+if [ "$SAVE" = "true" ]; then
+    echo "Generated JSON Output:"
+    echo "$JSON_OUTPUT"
 fi
