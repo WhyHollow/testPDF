@@ -384,39 +384,41 @@ stdout:
 stderr:
 {stderr.decode()}""")
 
-    output = stdout.decode()
-    print(output)
-    if save:
-        content = json.loads(output)
+    json_match = re.search(r'Generated JSON Output:\s*(\{.*\})', output, re.DOTALL)
+
+    if json_match:
+        json_str = json_match.group(1)
+        content = json.loads(json_str)
+
         page_title = content.get("title", "default_title").replace(" ", "_")
-        try:
-            await send_data_to_api(
-                url="https://pdf.shrinked.ai/api/create-page",
-                slug=page_title,
-                content=content,
-                headers={"Authorization": "Bearer <your-token>"}
-            )
-        except RuntimeError as e:
-            logfire.error(f"Failed to send data for user: {user_id} - {e}")
-        raise
+        if save:
+            try:
+                await send_data_to_api(
+                    url="https://pdf.shrinked.ai/api/create-page",
+                    slug=page_title,
+                    content=content
+                )
+            except RuntimeError as e:
+                logfire.error(f"Failed to send data for user: {user_id} - {e}")
+            raise
 
     return stdout.decode(), stderr.decode()
 
-async def send_data_to_api(url: str, slug: str, content: dict, headers: dict = None):
+async def send_data_to_api(url: str, slug: str, content: dict):
     payload = {
         "slug": slug,
         "content": content,
     }
 
     async with aiohttp.ClientSession() as session:
-        async with session.post(url, headers=headers, json=payload) as response:
+        async with session.post(url, json=payload) as response:
             if response.status >= 200 and response.status < 300:
                 result = await response.json()
-                print("Data successfully sent:", result)
+                logfire.info("Data successfully sent:", result)
                 return result
             else:
                 error_text = await response.text()
-                print(f"Error sending data: {response.status}, {error_text}")
+                logfire.error(f"Error sending data: {response.status}, {error_text}")
                 raise RuntimeError(f"Failed to send data. Status: {response.status}, Response: {error_text}")
 
 async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
