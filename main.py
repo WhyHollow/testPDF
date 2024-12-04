@@ -401,7 +401,6 @@ stderr:
                 )
             except RuntimeError as e:
                 logfire.error(f"Failed to send data for user: {user_id} - {e}")
-            raise
 
     return stdout.decode(), stderr.decode()
 
@@ -416,11 +415,9 @@ async def send_data_to_api(url: str, slug: str, content: dict):
             if response.status >= 200 and response.status < 300:
                 result = await response.json()
                 logfire.info("Data successfully sent")
-                return result
             else:
                 error_text = await response.text()
                 logfire.error(f"Error sending data: {response.status}, {error_text}")
-                raise RuntimeError(f"Failed to send data. Status: {response.status}, Response: {error_text}")
 
 async def send_email(user_id: str, subj: str, body: str, files: List[Path]):
     url = "https://api.resend.com/emails"
