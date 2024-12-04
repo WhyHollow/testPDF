@@ -386,6 +386,7 @@ stderr:
 
     output = stdout.decode()
     if save:
+        content = json.loads(output)
         page_title = content.get("title", "default_title").replace(" ", "_")
         try:
             await send_data_to_api(
