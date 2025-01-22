@@ -157,6 +157,20 @@ echo "Generating Documents..."
     tee \
         >(pandoc -o "$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')-refs.pdf" --from markdown+header_attributes --pdf-engine=xelatex) >/dev/null
 
+
+(
+    echo $'# '"$TITLE"$'\n'
+    echo $'## Origin\n\n'"$URL"$'\n'
+    echo $'## Abstract\n\n'"$ABSTRACT"$'\n'
+    echo "$CONTRIBUTORS"$'\n'
+    echo $'## Chapters\n\n'"$CHAPTERS"$'\n'
+    echo "$INTRODUCTION"$'\n'
+    echo $'## Discussion\n\n'"$PASSAGES"$'\n'
+    echo "$CONCLUSION"$'\n'
+) |
+    sed -E 's/\[\[([0-9]+)\]\]\([^)]+\)//g' |
+    sed -E 's/\[([0-9]+)\]//g' |
+    pandoc --to markdown -o "./$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g').md"
 # if [ "$SAVE" = "true" ]; then
 
 #     PAGE_TITLE=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g')
