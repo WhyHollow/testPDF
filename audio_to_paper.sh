@@ -199,26 +199,19 @@ echo "Generating Documents..."
 # fi
 if [ "$SAVE" = "true" ]; then
 
-    JSON_OUTPUT=$(jq -n \
-        --arg origin "${URL:-N/A}" \
-        '{origin: $origin}' | \
-        jq --arg abstract "${ABSTRACT:-No abstract available}" \
-        '. + {abstract: $abstract}' | \
-        jq --arg contributors "${CONTRIBUTORS:-No contributors listed}" \
-        '. + {contributors: $contributors}' | \
-        jq --arg chapters "${CHAPTERS:-No chapters available}" \
-        '. + {chapters: $chapters}' | \
-        jq --arg introduction "${INTRODUCTION:-No introduction available}" \
-        '. + {introduction: $introduction}' | \
-        jq --arg discussion "${PASSAGES:-No discussion available}" \
-        '. + {discussion: $discussion}' | \
-        jq --arg conclusion "${CONCLUSION:-No conclusion available}" \
-        '. + {conclusion: $conclusion}' | \
-        jq --arg references "${REFERENCES:-No references available}" \
-        '. + {references: $references}')
-
-
-    echo "Generated JSON Output:"
+    JSON_OUTPUT=$(cat <<EOF | jq '.'
+{
+    "origin": "${URL:-N/A}",
+    "abstract": "${ABSTRACT:-No abstract available}",
+    "contributors": "${CONTRIBUTORS:-No contributors listed}",
+    "chapters": "${CHAPTERS:-No chapters available}",
+    "introduction": "${INTRODUCTION:-No introduction available}",
+    "discussion": "${PASSAGES:-No discussion available}",
+    "conclusion": "${CONCLUSION:-No conclusion available}",
+    "references": "${REFERENCES:-No references available}"
+}
+EOF
+)
     echo "$JSON_OUTPUT"
 fi
 
