@@ -199,44 +199,27 @@ echo "Generating Documents..."
 # fi
 if [ "$SAVE" = "true" ]; then
 
-    JSON_OUTPUT=$(python3 -c "
-        import json
-        data = {
-            'origin': '${URL:-N/A}',
-            'abstract': '${ABSTRACT:-No abstract available}',
-            'contributors': '${CONTRIBUTORS:-No contributors listed}',
-            'chapters': '${CHAPTERS:-No chapters available}',
-            'introduction': '${INTRODUCTION:-No introduction available}',
-            'discussion': '${PASSAGES:-No discussion available}',
-            'conclusion': '${CONCLUSION:-No conclusion available}',
-            'references': '${REFERENCES:-No references available}',
-        }
-        print(json.dumps(data))
-        ")
+    JSON_OUTPUT=$(jq -n \
+        --arg origin "${URL:-N/A}" \
+        '{origin: $origin}' | \
+        jq --arg abstract "${ABSTRACT:-No abstract available}" \
+        '. + {abstract: $abstract}' | \
+        jq --arg contributors "${CONTRIBUTORS:-No contributors listed}" \
+        '. + {contributors: $contributors}' | \
+        jq --arg chapters "${CHAPTERS:-No chapters available}" \
+        '. + {chapters: $chapters}' | \
+        jq --arg introduction "${INTRODUCTION:-No introduction available}" \
+        '. + {introduction: $introduction}' | \
+        jq --arg discussion "${PASSAGES:-No discussion available}" \
+        '. + {discussion: $discussion}' | \
+        jq --arg conclusion "${CONCLUSION:-No conclusion available}" \
+        '. + {conclusion: $conclusion}' | \
+        jq --arg references "${REFERENCES:-No references available}" \
+        '. + {references: $references}')
 
 
-    if [ -z "$JSON_OUTPUT" ]; then
-        echo "Error: JSON_OUTPUT is empty" >&2
-        exit 1
-    fi
-    TEMP_FILE=$(mktemp)
-    echo "$JSON_OUTPUT" > "$TEMP_FILE"
-
-
-    RESPONSE=$(jq -n \
-        --arg title "$TITLE" \
-        --slurpfile content "$TEMP_FILE" \
-        '{slug: $title, content: $content[0]}' | \
-        curl -s -X POST \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer YOUR_API_KEY" \
-        -d @- \
-        "https://pdf.shrinked.ai/api/create-page")
-
-
-    rm -f "$TEMP_FILE"
-
-
+    echo "Generated JSON Output:"
+    echo "$JSON_OUTPUT"
 fi
 
 
