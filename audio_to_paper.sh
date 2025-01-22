@@ -198,27 +198,21 @@ echo "Generating Documents..."
 #     rm /tmp/content.json
 # fi
 if [ "$SAVE" = "true" ]; then
-    JSON_OUTPUT=$(jq -n --arg origin "${URL:-N/A}" \
-        --arg abstract "${ABSTRACT:-No abstract available}" \
-        --arg contributors "${CONTRIBUTORS:-No contributors listed}" \
-        --arg chapters "${CHAPTERS:-No chapters available}" \
-        --arg introduction "${INTRODUCTION:-No introduction available}" \
-        --arg discussion "${PASSAGES:-No discussion available}" \
-        --arg conclusion "${CONCLUSION:-No conclusion available}" \
-        --arg references "${REFERENCES:-No references available}" \
-        '{
-            origin: $origin,
-            abstract: $abstract,
-            contributors: $contributors,
-            chapters: $chapters,
-            introduction: $introduction,
-            discussion: $discussion,
-            conclusion: $conclusion,
-            references: $references
-        }')
-
-    echo "Generated JSON Output:"
-    echo "$JSON_OUTPUT"
+JSON_OUTPUT=$(python3 -c "
+import json
+data = {
+    'origin': '${URL:-N/A}',
+    'abstract': '${ABSTRACT:-No abstract available}',
+    'contributors': '${CONTRIBUTORS:-No contributors listed}',
+    'chapters': '${CHAPTERS:-No chapters available}',
+    'introduction': '${INTRODUCTION:-No introduction available}',
+    'discussion': '${PASSAGES:-No discussion available}',
+    'conclusion': '${CONCLUSION:-No conclusion available}',
+    'references': '${REFERENCES:-No references available}',
+}
+print(json.dumps(data))
+")
+echo "$JSON_OUTPUT"
 fi
 
 # Check if images are requested
