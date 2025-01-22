@@ -168,8 +168,6 @@ echo "Generating Documents..."
     echo $'## Discussion\n\n'"$PASSAGES"$'\n'
     echo "$CONCLUSION"$'\n'
 ) |
-    sed -E 's/\[\[([0-9]+)\]\]\([^)]+\)//g' |
-    sed -E 's/\[([0-9]+)\]//g' |
     pandoc --to markdown -o "./$(echo "$TITLE" | sed 's/[^a-zA-Z0-9]/_/g').md"
 # if [ "$SAVE" = "true" ]; then
 
