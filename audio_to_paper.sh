@@ -198,21 +198,21 @@ echo "Generating Documents..."
 #     rm /tmp/content.json
 # fi
 if [ "$SAVE" = "true" ]; then
-JSON_OUTPUT=$(python3 -c "
-import json
-data = {
-    'origin': '${URL:-N/A}',
-    'abstract': '${ABSTRACT:-No abstract available}',
-    'contributors': '${CONTRIBUTORS:-No contributors listed}',
-    'chapters': '${CHAPTERS:-No chapters available}',
-    'introduction': '${INTRODUCTION:-No introduction available}',
-    'discussion': '${PASSAGES:-No discussion available}',
-    'conclusion': '${CONCLUSION:-No conclusion available}',
-    'references': '${REFERENCES:-No references available}',
-}
-print(json.dumps(data))
-")
-echo "$JSON_OUTPUT"
+    JSON_OUTPUT=$(python3 -c "
+    import json
+    data = {
+        'origin': '${URL:-N/A}',
+        'abstract': '${ABSTRACT:-No abstract available}',
+        'contributors': '${CONTRIBUTORS:-No contributors listed}',
+        'chapters': '${CHAPTERS:-No chapters available}',
+        'introduction': '${INTRODUCTION:-No introduction available}',
+        'discussion': '${PASSAGES:-No discussion available}',
+        'conclusion': '${CONCLUSION:-No conclusion available}',
+        'references': '${REFERENCES:-No references available}',
+    }
+    print(json.dumps(data))
+    ")
+    echo "$JSON_OUTPUT"
 fi
 
 # Check if images are requested
