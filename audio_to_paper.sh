@@ -199,20 +199,26 @@ echo "Generating Documents..."
 # fi
 if [ "$SAVE" = "true" ]; then
 
-    JSON_OUTPUT=$(cat <<EOF | jq -R -s '
-    {
-        "origin": $URL,
-        "abstract": $ABSTRACT,
-        "contributors": $CONTRIBUTORS,
-        "chapters": $CHAPTERS,
-        "introduction": $INTRODUCTION,
-        "discussion": $PASSAGES,
-        "conclusion": $CONCLUSION,
-        "references": $REFERENCES
-    }
-    '
+    JSON_OUTPUT=$(cat <<EOF | jq -R -s --arg url "${URL:-N/A}" \
+                                         --arg abstract "${ABSTRACT:-No abstract available}" \
+                                         --arg contributors "${CONTRIBUTORS:-No contributors listed}" \
+                                         --arg chapters "${CHAPTERS:-No chapters available}" \
+                                         --arg introduction "${INTRODUCTION:-No introduction available}" \
+                                         --arg discussion "${PASSAGES:-No discussion available}" \
+                                         --arg conclusion "${CONCLUSION:-No conclusion available}" \
+                                         --arg references "${REFERENCES:-No references available}" \
+        '{
+            origin: $url,
+            abstract: $abstract,
+            contributors: $contributors,
+            chapters: $chapters,
+            introduction: $introduction,
+            discussion: $discussion,
+            conclusion: $conclusion,
+            references: $references
+        }'
 EOF
-)
+    )
 
     echo "$JSON_OUTPUT"
 fi
