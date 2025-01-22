@@ -384,8 +384,8 @@ stdout:
 stderr:
 {stderr.decode()}""")
 
-    output = stdout.decode()
-    json_match = re.search(r'Generated JSON Output:\s*(\{.*\})', output, re.DOTALL)
+    # output = stdout.decode()
+    # json_match = re.search(r'Generated JSON Output:\s*(\{.*\})', output, re.DOTALL)
 
     # if json_match:
     #     json_str = json_match.group(1)
