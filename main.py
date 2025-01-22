@@ -387,24 +387,24 @@ stderr:
     output = stdout.decode()
     json_match = re.search(r'Generated JSON Output:\s*(\{.*\})', output, re.DOTALL)
 
-    if json_match:
-        json_str = json_match.group(1)
-        content = json.loads(json_str)
+    # if json_match:
+    #     json_str = json_match.group(1)
+    #     content = json.loads(json_str)
 
-        title_match = re.search(r"<title>(.*?)</title>", output, re.DOTALL)
-        if title_match:
-            title = title_match.group(1).strip()
-        else:
-            title = "👋"
-        if save:
-            try:
-                await send_data_to_api(
-                    url="https://pdf.shrinked.ai/api/create-page",
-                    slug=title,
-                    content=content
-                )
-            except RuntimeError as e:
-                logfire.error(f"Failed to send data for user: {user_id} - {e}")
+    #     title_match = re.search(r"<title>(.*?)</title>", output, re.DOTALL)
+    #     if title_match:
+    #         title = title_match.group(1).strip()
+    #     else:
+    #         title = "👋"
+    #     if save:
+    #         try:
+    #             await send_data_to_api(
+    #                 url="https://pdf.shrinked.ai/api/create-page",
+    #                 slug=title,
+    #                 content=content
+    #             )
+    #         except RuntimeError as e:
+    #             logfire.error(f"Failed to send data for user: {user_id} - {e}")
 
     return stdout.decode(), stderr.decode()
 

@@ -198,22 +198,47 @@ echo "Generating Documents..."
 #     rm /tmp/content.json
 # fi
 if [ "$SAVE" = "true" ]; then
+
     JSON_OUTPUT=$(python3 -c "
-    import json
-    data = {
-        'origin': '${URL:-N/A}',
-        'abstract': '${ABSTRACT:-No abstract available}',
-        'contributors': '${CONTRIBUTORS:-No contributors listed}',
-        'chapters': '${CHAPTERS:-No chapters available}',
-        'introduction': '${INTRODUCTION:-No introduction available}',
-        'discussion': '${PASSAGES:-No discussion available}',
-        'conclusion': '${CONCLUSION:-No conclusion available}',
-        'references': '${REFERENCES:-No references available}',
-    }
-    print(json.dumps(data))
-    ")
-    echo "$JSON_OUTPUT"
+        import json
+        data = {
+            'origin': '${URL:-N/A}',
+            'abstract': '${ABSTRACT:-No abstract available}',
+            'contributors': '${CONTRIBUTORS:-No contributors listed}',
+            'chapters': '${CHAPTERS:-No chapters available}',
+            'introduction': '${INTRODUCTION:-No introduction available}',
+            'discussion': '${PASSAGES:-No discussion available}',
+            'conclusion': '${CONCLUSION:-No conclusion available}',
+            'references': '${REFERENCES:-No references available}',
+        }
+        print(json.dumps(data))
+        ")
+
+
+    if [ -z "$JSON_OUTPUT" ]; then
+        echo "Error: JSON_OUTPUT is empty" >&2
+        exit 1
+    fi
+    TEMP_FILE=$(mktemp)
+    echo "$JSON_OUTPUT" > "$TEMP_FILE"
+
+
+    RESPONSE=$(jq -n \
+        --arg title "$TITLE" \
+        --slurpfile content "$TEMP_FILE" \
+        '{slug: $title, content: $content[0]}' | \
+        curl -s -X POST \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer YOUR_API_KEY" \
+        -d @- \
+        "https://pdf.shrinked.ai/api/create-page")
+
+
+    rm -f "$TEMP_FILE"
+
+
 fi
+
 
 # Check if images are requested
 if [ "$IMAGES" = true ]; then
