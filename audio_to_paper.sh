@@ -219,7 +219,6 @@ if [ "$SAVE" = "true" ]; then
             references: $references
         }')
 
-    echo "$JSON_OUTPUT"
 fi
 
 
@@ -260,4 +259,8 @@ if [ "$VERBOSE" = true ]; then
     echo "<abstract>"
     echo "$ABSTRACT"
     echo "</abstract>"
+fi
+if [ "$SAVE" = "true" ]; then
+    echo "Generated JSON Output:"
+    echo "$JSON_OUTPUT"
 fi
